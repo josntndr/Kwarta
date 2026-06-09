@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "frontend/public/**/*.php",
+      "use": "vercel-php@0.7.3"
+    },
+    {
+      "src": "frontend/public/assets/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "frontend/public/images/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    { "src": "/assets/(.*)", "dest": "/frontend/public/assets/$1" },
+    { "src": "/images/(.*)", "dest": "/frontend/public/images/$1" },
+    { "src": "/admin/dashboard/?", "dest": "/frontend/public/admin/dashboard.php" },
+    { "src": "/admin/stats/?", "dest": "/frontend/public/admin/stats.php" },
+    { "src": "/admin/users/?", "dest": "/frontend/public/admin/users.php" },
+    { "src": "/admin/activity/?", "dest": "/frontend/public/admin/activity.php" },
+    { "src": "/admin/profile/?", "dest": "/frontend/public/admin/profile.php" },
+    { "src": "/dashboard/?", "dest": "/frontend/public/dashboard.php" },
+    { "src": "/transactions/?", "dest": "/frontend/public/transactions.php" },
+    { "src": "/transaction/new/?", "dest": "/frontend/public/transaction-form.php" },
+    { "src": "/budgets/?", "dest": "/frontend/public/budgets.php" },
+    { "src": "/savings/?", "dest": "/frontend/public/savings.php" },
+    { "src": "/receipt/?", "dest": "/frontend/public/receipt.php" },
+    { "src": "/receipt-pdf/?", "dest": "/frontend/public/receipt-pdf.php" },
+    { "src": "/gamification/?", "dest": "/frontend/public/gamification.php" },
+    { "src": "/profile/?", "dest": "/frontend/public/profile.php" },
+    { "src": "/login/?", "dest": "/frontend/public/login.php" },
+    { "src": "/register/?", "dest": "/frontend/public/register.php" },
+    { "src": "/logout/?", "dest": "/frontend/public/logout.php" },
+    { "src": "/(.*\\.php)", "dest": "/frontend/public/$1" },
+    { "src": "/?", "dest": "/frontend/public/index.php" }
+  ]
+}

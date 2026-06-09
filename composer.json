@@ -1,0 +1,8 @@
+{
+  "name": "kwarta/financial-tracker",
+  "description": "Kwarta pixel-themed financial tracker with user and admin dashboards.",
+  "type": "project",
+  "require": {
+    "php": ">=8.1"
+  }
+}

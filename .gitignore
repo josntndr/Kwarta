@@ -1,0 +1,9 @@
+backend/config/local.php
+vendor/
+.env
+.vercel/
+*.log
+runtime/
+Thumbs.db
+
+.vercel

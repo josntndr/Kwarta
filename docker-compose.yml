@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: deployment/docker/php-apache.Dockerfile
+    container_name: kwarta_app
+    ports:
+      - "8000:80"
+    environment:
+      DB_HOST: db
+      DB_NAME: kwarta
+      DB_USER: kwarta
+      DB_PASS: kwarta_secret
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.4
+    container_name: kwarta_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: kwarta
+      MYSQL_USER: kwarta
+      MYSQL_PASSWORD: kwarta_secret
+      MYSQL_ROOT_PASSWORD: kwarta_root_secret
+    ports:
+      - "3307:3306"
+    volumes:
+      - kwarta_mysql_data:/var/lib/mysql
+      - ./database/kwarta.sql:/docker-entrypoint-initdb.d/01-kwarta.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kwarta_mysql_data:

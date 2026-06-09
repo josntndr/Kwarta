@@ -1,0 +1,10 @@
+{
+  "name": "kwarta-financial-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kwarta pixel-themed financial tracker with user and admin dashboards.",
+  "scripts": {
+    "start": "node deployment/local-node-server.js",
+    "deploy": "vercel --prod"
+  }
+}

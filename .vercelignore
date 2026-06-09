@@ -1,0 +1,9 @@
+runtime/
+*.log
+runtime-node.log
+runtime-node-error.log
+node_modules/
+.env
+.git/
+.codex/
+.agents/
