@@ -49,6 +49,112 @@ function keep_logged_in(): bool
     return !empty($_SESSION['keep_logged_in']);
 }
 
+function kwarta_auth_cookie_name(): string
+{
+    return 'kwarta_auth';
+}
+
+function kwarta_auth_secret(): string
+{
+    $secret = getenv('APP_SECRET') ?: getenv('DB_PASSWORD') ?: getenv('MYSQLPASSWORD') ?: 'kwarta-local-dev-secret';
+
+    return hash('sha256', (string) $secret);
+}
+
+function kwarta_base64_url_encode(string $value): string
+{
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function kwarta_base64_url_decode(string $value): string
+{
+    $padded = str_pad(strtr($value, '-_', '+/'), strlen($value) % 4 ? strlen($value) + 4 - strlen($value) % 4 : strlen($value), '=', STR_PAD_RIGHT);
+    $decoded = base64_decode($padded, true);
+
+    return $decoded === false ? '' : $decoded;
+}
+
+function kwarta_cookie_options(int $expires): array
+{
+    return [
+        'expires' => $expires,
+        'path' => '/',
+        'secure' => (getenv('VERCEL') === '1') || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ];
+}
+
+function set_auth_cookie(array $user, bool $keepLoggedIn): void
+{
+    $isAdmin = ($user['role'] ?? 'user') === 'admin';
+    $persistent = !$isAdmin && $keepLoggedIn;
+    $expiresAt = time() + ($persistent ? 60 * 60 * 24 * 30 : 1800);
+    $cookieExpires = $persistent ? $expiresAt : 0;
+    $payload = kwarta_base64_url_encode(json_encode([
+        'id' => (int) $user['id'],
+        'name' => (string) ($user['name'] ?? 'User'),
+        'role' => (string) ($user['role'] ?? 'user'),
+        'keep' => $persistent,
+        'exp' => $expiresAt,
+    ], JSON_THROW_ON_ERROR));
+    $signature = hash_hmac('sha256', $payload, kwarta_auth_secret());
+
+    setcookie(kwarta_auth_cookie_name(), $payload . '.' . $signature, kwarta_cookie_options($cookieExpires));
+}
+
+function clear_auth_cookie(): void
+{
+    setcookie(kwarta_auth_cookie_name(), '', kwarta_cookie_options(time() - 3600));
+}
+
+function restore_auth_cookie(): void
+{
+    if (is_logged_in() || empty($_COOKIE[kwarta_auth_cookie_name()])) {
+        return;
+    }
+
+    $parts = explode('.', (string) $_COOKIE[kwarta_auth_cookie_name()], 2);
+    if (count($parts) !== 2) {
+        clear_auth_cookie();
+        return;
+    }
+
+    [$payload, $signature] = $parts;
+    $expected = hash_hmac('sha256', $payload, kwarta_auth_secret());
+    if (!hash_equals($expected, $signature)) {
+        clear_auth_cookie();
+        return;
+    }
+
+    $data = json_decode(kwarta_base64_url_decode($payload), true);
+    if (!is_array($data) || (int) ($data['exp'] ?? 0) < time()) {
+        clear_auth_cookie();
+        return;
+    }
+
+    global $pdo;
+    if (!$pdo instanceof PDO) {
+        clear_auth_cookie();
+        return;
+    }
+
+    $stmt = $pdo->prepare('SELECT id, name, role, status FROM users WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => (int) ($data['id'] ?? 0)]);
+    $user = $stmt->fetch();
+
+    if (!$user || ($user['status'] ?? 'inactive') !== 'active') {
+        clear_auth_cookie();
+        return;
+    }
+
+    $_SESSION['user_id'] = (int) $user['id'];
+    $_SESSION['user_name'] = $user['name'];
+    $_SESSION['role'] = $user['role'] ?? 'user';
+    $_SESSION['keep_logged_in'] = !empty($data['keep']) && ($_SESSION['role'] ?? 'user') !== 'admin';
+    $_SESSION['last_activity_at'] = time();
+}
+
 function require_login(): void
 {
     if (!is_logged_in()) {
@@ -112,6 +218,7 @@ function login_user(array $user, bool $keepLoggedIn = false): void
         'httponly' => (bool) $params['httponly'],
         'samesite' => $params['samesite'] ?? 'Lax',
     ]);
+    set_auth_cookie($user, $keepLoggedIn);
 }
 
 function log_admin_activity(PDO $pdo, int $adminId, string $action, ?string $description = null): void
@@ -152,6 +259,7 @@ function logout_user(): void
         );
     }
 
+    clear_auth_cookie();
     session_destroy();
 }
 
@@ -190,4 +298,5 @@ function enforce_session_timeout(): void
     $_SESSION['last_activity_at'] = time();
 }
 
+restore_auth_cookie();
 enforce_session_timeout();
