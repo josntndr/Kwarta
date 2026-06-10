@@ -8,53 +8,13 @@ $pageTitle = 'Savings Cart';
 $userId = current_user_id();
 $errors = [];
 
-$pdo->exec('
-    CREATE TABLE IF NOT EXISTS savings_goal_histories (
-        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        savings_goal_id INT UNSIGNED NOT NULL,
-        action_type VARCHAR(40) NOT NULL,
-        amount_changed DECIMAL(12, 2),
-        previous_amount DECIMAL(12, 2),
-        new_amount DECIMAL(12, 2),
-        notes VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_savings_history_goal FOREIGN KEY (savings_goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE,
-        INDEX idx_savings_history_goal_created (savings_goal_id, created_at)
-    ) ENGINE=InnoDB
-');
-
-$stmt = $pdo->query("
-    SELECT COUNT(*)
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'savings_goals'
-      AND COLUMN_NAME = 'description'
-");
-if ((int) $stmt->fetchColumn() === 0) {
-    $pdo->exec('ALTER TABLE savings_goals ADD COLUMN description VARCHAR(255) NULL AFTER name');
-}
-
-$stmt = $pdo->query("
-    SELECT COUNT(*)
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'savings_goals'
-      AND COLUMN_NAME = 'is_bought'
-");
-if ((int) $stmt->fetchColumn() === 0) {
-    $pdo->exec('ALTER TABLE savings_goals ADD COLUMN is_bought TINYINT(1) NOT NULL DEFAULT 0 AFTER target_date');
-}
-
-$stmt = $pdo->query("
-    SELECT COUNT(*)
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'savings_goals'
-      AND COLUMN_NAME = 'bought_at'
-");
-if ((int) $stmt->fetchColumn() === 0) {
-    $pdo->exec('ALTER TABLE savings_goals ADD COLUMN bought_at TIMESTAMP NULL AFTER is_bought');
+if (function_exists('kwarta_repair_savings_tables')) {
+    try {
+        kwarta_repair_savings_tables($pdo);
+    } catch (Throwable $error) {
+        error_log('[Kwarta savings schema] ' . $error->getMessage());
+        $errors[] = 'Savings Cart is preparing your online database. Please refresh and try again.';
+    }
 }
 
 function savings_goal_for_user(PDO $pdo, int $goalId, int $userId): ?array
@@ -104,8 +64,9 @@ function savings_history_time(string $timestamp): string
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
 
-    $action = $_POST['action'] ?? 'create';
-    $id = (int) ($_POST['id'] ?? 0);
+    try {
+        $action = $_POST['action'] ?? 'create';
+        $id = (int) ($_POST['id'] ?? 0);
 
     if ($action === 'delete') {
         $goal = savings_goal_for_user($pdo, $id, $userId);
@@ -359,6 +320,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('savings.php#goal-' . $newGoalId);
             }
         }
+    }
+    } catch (Throwable $error) {
+        error_log('[Kwarta savings action] ' . $error->getMessage());
+        $errors[] = 'Savings Cart could not save that change yet. Please refresh and try again.';
     }
 }
 

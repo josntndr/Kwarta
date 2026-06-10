@@ -103,7 +103,11 @@ function kwarta_column_exists(PDO $pdo, string $table, string $column): bool
 function kwarta_add_column_if_missing(PDO $pdo, string $table, string $column, string $definition): void
 {
     if (!kwarta_column_exists($pdo, $table, $column)) {
-        $pdo->exec("ALTER TABLE {$table} ADD COLUMN {$column} {$definition}");
+        try {
+            $pdo->exec("ALTER TABLE {$table} ADD COLUMN {$column} {$definition}");
+        } catch (Throwable $error) {
+            error_log("[Kwarta schema repair {$table}.{$column}] " . $error->getMessage());
+        }
     }
 }
 
@@ -359,14 +363,67 @@ function kwarta_repair_users_table(PDO $pdo): void
     }
 }
 
+function kwarta_repair_savings_tables(PDO $pdo): void
+{
+    $pdo->exec("CREATE TABLE IF NOT EXISTS savings_goals (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        description VARCHAR(255),
+        target_amount DECIMAL(12, 2) NOT NULL,
+        saved_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        target_date DATE,
+        is_bought TINYINT(1) NOT NULL DEFAULT 0,
+        bought_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_savings_user_created (user_id, created_at)
+    ) ENGINE=InnoDB");
+
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'user_id', 'INT UNSIGNED NOT NULL AFTER id');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'name', 'VARCHAR(120) NOT NULL DEFAULT "" AFTER user_id');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'description', 'VARCHAR(255) NULL AFTER name');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'target_amount', 'DECIMAL(12, 2) NOT NULL DEFAULT 0 AFTER description');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'saved_amount', 'DECIMAL(12, 2) NOT NULL DEFAULT 0 AFTER target_amount');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'target_date', 'DATE NULL AFTER saved_amount');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'is_bought', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER target_date');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'bought_at', 'TIMESTAMP NULL AFTER is_bought');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    kwarta_add_column_if_missing($pdo, 'savings_goals', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS savings_goal_histories (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        savings_goal_id INT UNSIGNED NOT NULL,
+        action_type VARCHAR(40) NOT NULL,
+        amount_changed DECIMAL(12, 2),
+        previous_amount DECIMAL(12, 2),
+        new_amount DECIMAL(12, 2),
+        notes VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_savings_history_goal_created (savings_goal_id, created_at)
+    ) ENGINE=InnoDB");
+
+    kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'savings_goal_id', 'INT UNSIGNED NOT NULL AFTER id');
+    kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'action_type', 'VARCHAR(40) NOT NULL DEFAULT "goal_edited" AFTER savings_goal_id');
+    kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'amount_changed', 'DECIMAL(12, 2) NULL AFTER action_type');
+    kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'previous_amount', 'DECIMAL(12, 2) NULL AFTER amount_changed');
+    kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'new_amount', 'DECIMAL(12, 2) NULL AFTER previous_amount');
+    kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'notes', 'VARCHAR(255) NULL AFTER new_amount');
+    kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+}
+
 function kwarta_ensure_database_schema(PDO $pdo): void
 {
     try {
         kwarta_apply_inline_schema($pdo);
         kwarta_apply_schema_file($pdo);
         kwarta_repair_users_table($pdo);
+        kwarta_repair_savings_tables($pdo);
         kwarta_apply_schema_file($pdo);
         kwarta_apply_inline_schema($pdo);
+        kwarta_repair_savings_tables($pdo);
     } catch (Throwable $error) {
         error_log('[Kwarta schema repair] ' . $error->getMessage());
     }
