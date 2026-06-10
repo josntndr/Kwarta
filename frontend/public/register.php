@@ -9,6 +9,10 @@ $errors = [];
 $name = '';
 $email = '';
 
+if (isset($_GET['security'])) {
+    $errors[] = 'Your registration form expired. Please try again.';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
 

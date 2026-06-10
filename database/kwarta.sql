@@ -171,6 +171,30 @@ CREATE TABLE admin_activity_logs (
     INDEX idx_admin_logs_admin_created (admin_id, created_at)
 ) ENGINE=InnoDB;
 
+CREATE TABLE login_attempts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(180) NOT NULL,
+    ip_address VARCHAR(45) NULL,
+    attempts INT UNSIGNED NOT NULL DEFAULT 0,
+    locked_until DATETIME NULL,
+    last_attempt_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_login_attempt (email, ip_address),
+    INDEX idx_login_attempts_locked (locked_until)
+) ENGINE=InnoDB;
+
+CREATE TABLE password_resets (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(180) NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_password_resets_token (token),
+    INDEX idx_password_resets_email (email)
+) ENGINE=InnoDB;
+
 INSERT INTO categories (name, type) VALUES
 ('Food', 'expense'),
 ('Transportation', 'expense'),

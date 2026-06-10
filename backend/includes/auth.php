@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+$isProductionRuntime = getenv('VERCEL') === '1' || getenv('APP_ENV') === 'production';
+if ($isProductionRuntime) {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+    error_reporting(E_ALL);
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.cookie_httponly', '1');
@@ -54,6 +61,11 @@ function kwarta_auth_cookie_name(): string
     return 'kwarta_auth';
 }
 
+function kwarta_csrf_cookie_name(): string
+{
+    return 'kwarta_csrf';
+}
+
 function kwarta_auth_secret(): string
 {
     $secret = getenv('APP_SECRET') ?: getenv('DB_PASSWORD') ?: getenv('MYSQLPASSWORD') ?: 'kwarta-local-dev-secret';
@@ -85,22 +97,48 @@ function kwarta_cookie_options(int $expires): array
     ];
 }
 
+function kwarta_create_signed_payload(array $data): string
+{
+    $payload = kwarta_base64_url_encode(json_encode($data, JSON_THROW_ON_ERROR));
+    $signature = hash_hmac('sha256', $payload, kwarta_auth_secret());
+
+    return $payload . '.' . $signature;
+}
+
+function kwarta_read_signed_payload(string $token): ?array
+{
+    $parts = explode('.', $token, 2);
+    if (count($parts) !== 2) {
+        return null;
+    }
+
+    [$payload, $signature] = $parts;
+    $expected = hash_hmac('sha256', $payload, kwarta_auth_secret());
+
+    if (!hash_equals($expected, $signature)) {
+        return null;
+    }
+
+    $data = json_decode(kwarta_base64_url_decode($payload), true);
+
+    return is_array($data) ? $data : null;
+}
+
 function set_auth_cookie(array $user, bool $keepLoggedIn): void
 {
     $isAdmin = ($user['role'] ?? 'user') === 'admin';
     $persistent = !$isAdmin && $keepLoggedIn;
     $expiresAt = time() + ($persistent ? 60 * 60 * 24 * 30 : 1800);
     $cookieExpires = $persistent ? $expiresAt : 0;
-    $payload = kwarta_base64_url_encode(json_encode([
+    $token = kwarta_create_signed_payload([
         'id' => (int) $user['id'],
         'name' => (string) ($user['name'] ?? 'User'),
         'role' => (string) ($user['role'] ?? 'user'),
         'keep' => $persistent,
         'exp' => $expiresAt,
-    ], JSON_THROW_ON_ERROR));
-    $signature = hash_hmac('sha256', $payload, kwarta_auth_secret());
+    ]);
 
-    setcookie(kwarta_auth_cookie_name(), $payload . '.' . $signature, kwarta_cookie_options($cookieExpires));
+    setcookie(kwarta_auth_cookie_name(), $token, kwarta_cookie_options($cookieExpires));
 }
 
 function clear_auth_cookie(): void
@@ -114,20 +152,7 @@ function restore_auth_cookie(): void
         return;
     }
 
-    $parts = explode('.', (string) $_COOKIE[kwarta_auth_cookie_name()], 2);
-    if (count($parts) !== 2) {
-        clear_auth_cookie();
-        return;
-    }
-
-    [$payload, $signature] = $parts;
-    $expected = hash_hmac('sha256', $payload, kwarta_auth_secret());
-    if (!hash_equals($expected, $signature)) {
-        clear_auth_cookie();
-        return;
-    }
-
-    $data = json_decode(kwarta_base64_url_decode($payload), true);
+    $data = kwarta_read_signed_payload((string) $_COOKIE[kwarta_auth_cookie_name()]);
     if (!is_array($data) || (int) ($data['exp'] ?? 0) < time()) {
         clear_auth_cookie();
         return;
@@ -183,20 +208,178 @@ function require_admin(): void
 
 function csrf_token(): string
 {
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    static $requestToken = null;
+
+    if ($requestToken !== null) {
+        return $requestToken;
     }
 
-    return $_SESSION['csrf_token'];
+    $requestToken = kwarta_create_signed_payload([
+        'nonce' => bin2hex(random_bytes(32)),
+        'exp' => time() + 3600,
+    ]);
+
+    setcookie(kwarta_csrf_cookie_name(), $requestToken, kwarta_cookie_options(0));
+
+    return $requestToken;
 }
 
 function verify_csrf(): void
 {
     $token = $_POST['csrf_token'] ?? '';
-    if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
-        http_response_code(419);
-        exit('Invalid security token. Please go back and try again.');
+    $data = is_string($token) ? kwarta_read_signed_payload($token) : null;
+    $valid = is_string($token)
+        && $token !== ''
+        && is_array($data)
+        && (int) ($data['exp'] ?? 0) >= time();
+
+    if (!$valid) {
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? ($_SERVER['SCRIPT_NAME'] ?? 'login.php'), PHP_URL_PATH) ?: 'login.php';
+        redirect($path . '?security=1');
     }
+}
+
+function client_ip_address(): string
+{
+    $forwardedFor = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+    if (is_string($forwardedFor) && $forwardedFor !== '') {
+        $first = trim(explode(',', $forwardedFor)[0]);
+        if (filter_var($first, FILTER_VALIDATE_IP)) {
+            return $first;
+        }
+    }
+
+    return (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+}
+
+function login_attempt_status(PDO $pdo, string $email): array
+{
+    $stmt = $pdo->prepare('
+        SELECT attempts, locked_until
+        FROM login_attempts
+        WHERE email = :email AND ip_address = :ip_address
+        LIMIT 1
+    ');
+    $stmt->execute([
+        'email' => strtolower($email),
+        'ip_address' => client_ip_address(),
+    ]);
+    $attempt = $stmt->fetch();
+
+    if (!$attempt || empty($attempt['locked_until'])) {
+        return ['locked' => false, 'seconds' => 0, 'attempts' => (int) ($attempt['attempts'] ?? 0)];
+    }
+
+    $remaining = strtotime((string) $attempt['locked_until']) - time();
+
+    if ($remaining <= 0) {
+        clear_login_attempts($pdo, $email);
+        return ['locked' => false, 'seconds' => 0, 'attempts' => 0];
+    }
+
+    return ['locked' => true, 'seconds' => $remaining, 'attempts' => (int) $attempt['attempts']];
+}
+
+function record_failed_login(PDO $pdo, string $email): int
+{
+    $email = strtolower($email);
+    $ipAddress = client_ip_address();
+
+    $stmt = $pdo->prepare('
+        SELECT id, attempts
+        FROM login_attempts
+        WHERE email = :email AND ip_address = :ip_address
+        LIMIT 1
+    ');
+    $stmt->execute([
+        'email' => $email,
+        'ip_address' => $ipAddress,
+    ]);
+    $attempt = $stmt->fetch();
+    $nextAttempts = (int) ($attempt['attempts'] ?? 0) + 1;
+    $lockedUntil = $nextAttempts >= 5 ? date('Y-m-d H:i:s', time() + 60) : null;
+
+    if ($attempt) {
+        $stmt = $pdo->prepare('
+            UPDATE login_attempts
+            SET attempts = :attempts,
+                locked_until = :locked_until,
+                last_attempt_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute([
+            'attempts' => $nextAttempts,
+            'locked_until' => $lockedUntil,
+            'id' => (int) $attempt['id'],
+        ]);
+    } else {
+        $stmt = $pdo->prepare('
+            INSERT INTO login_attempts (email, ip_address, attempts, locked_until, last_attempt_at)
+            VALUES (:email, :ip_address, :attempts, :locked_until, NOW())
+        ');
+        $stmt->execute([
+            'email' => $email,
+            'ip_address' => $ipAddress,
+            'attempts' => $nextAttempts,
+            'locked_until' => $lockedUntil,
+        ]);
+    }
+
+    return max(0, 5 - $nextAttempts);
+}
+
+function clear_login_attempts(PDO $pdo, string $email): void
+{
+    $stmt = $pdo->prepare('DELETE FROM login_attempts WHERE email = :email AND ip_address = :ip_address');
+    $stmt->execute([
+        'email' => strtolower($email),
+        'ip_address' => client_ip_address(),
+    ]);
+}
+
+function create_password_reset(PDO $pdo, string $email): ?string
+{
+    $email = strtolower(trim($email));
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
+    $stmt->execute(['email' => $email]);
+
+    if (!$stmt->fetch()) {
+        return null;
+    }
+
+    $token = bin2hex(random_bytes(32));
+    $stmt = $pdo->prepare('
+        INSERT INTO password_resets (email, token, expires_at)
+        VALUES (:email, :token, :expires_at)
+    ');
+    $stmt->execute([
+        'email' => $email,
+        'token' => hash('sha256', $token),
+        'expires_at' => date('Y-m-d H:i:s', time() + 900),
+    ]);
+
+    return $token;
+}
+
+function find_password_reset(PDO $pdo, string $token): ?array
+{
+    if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare('
+        SELECT *
+        FROM password_resets
+        WHERE token = :token
+          AND used_at IS NULL
+          AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1
+    ');
+    $stmt->execute(['token' => hash('sha256', $token)]);
+    $reset = $stmt->fetch();
+
+    return $reset ?: null;
 }
 
 function login_user(array $user, bool $keepLoggedIn = false): void
