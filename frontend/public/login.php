@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $keepLogin = isset($_POST['keep_login']);
 
     if (!$pdo instanceof PDO) {
-        $errors[] = 'Online accounts are temporarily unavailable while Kwarta connects to its production database. Please try again later.';
+        $errors[] = 'Login is unavailable because the production database is not connected yet. Please contact the app owner.';
     }
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {

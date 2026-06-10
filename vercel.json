@@ -33,6 +33,7 @@
     { "src": "/profile/?", "dest": "/frontend/public/profile.php" },
     { "src": "/login/?", "dest": "/frontend/public/login.php" },
     { "src": "/register/?", "dest": "/frontend/public/register.php" },
+    { "src": "/db-check/?", "dest": "/frontend/public/db-check.php" },
     { "src": "/logout/?", "dest": "/frontend/public/logout.php" },
     { "src": "/(.*\\.php)", "dest": "/frontend/public/$1" },
     { "src": "/?", "dest": "/frontend/public/index.php" }

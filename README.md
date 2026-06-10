@@ -260,6 +260,24 @@ DATABASE_URL=mysql://user:password@host:3306/database_name
 
 After saving environment variables, redeploy the project. Vercel does not apply new environment variables to an already-built deployment until a new deployment is created.
 
+### Database Health Check
+
+After adding the production database variables, open:
+
+```text
+https://kwarta-financial-tracker.vercel.app/db-check
+```
+
+Expected ready output:
+
+```text
+Connection: success
+Users table: found
+Status: ready
+```
+
+If it reports missing variables, add those values in **Vercel Project Settings > Environment Variables** for the Production environment. If it reports `Users table: missing`, import [database/kwarta.sql](database/kwarta.sql) into the hosted MySQL database.
+
 ## Gamification System
 
 - Users earn XP for logging transactions, setting budgets, adding Savings Cart items, and updating saved money.

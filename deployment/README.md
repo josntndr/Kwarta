@@ -92,6 +92,24 @@ DATABASE_URL=mysql://user:password@host:3306/database_name
 
 Redeploy after changing environment variables. Without a real hosted MySQL database, registration and login cannot work on Vercel even if the PHP deployment is successful.
 
+### Production Database Health Check
+
+After adding the Vercel environment variables and importing the SQL file, visit:
+
+```text
+https://kwarta-financial-tracker.vercel.app/db-check
+```
+
+The app is ready for registration/login when it shows:
+
+```text
+Connection: success
+Users table: found
+Status: ready
+```
+
+If it says variables are missing, add them in Vercel. If it says the `users` table is missing, import [../database/kwarta.sql](../database/kwarta.sql) into the hosted MySQL database.
+
 ### Vercel 404: DEPLOYMENT_NOT_FOUND
 
 If `https://kwarta-financial-tracker.vercel.app` shows `404: NOT_FOUND` with code `DEPLOYMENT_NOT_FOUND`, Vercel has not created or assigned a successful deployment to that exact URL yet. This is not a PHP or database error.

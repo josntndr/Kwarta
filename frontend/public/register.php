@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
     if (!$pdo instanceof PDO) {
-        $errors[] = 'Online account creation is temporarily unavailable while Kwarta connects to its production database. Please try again later.';
+        $errors[] = 'Account creation is unavailable because the production database is not connected yet. Please contact the app owner.';
     }
 
     if ($name === '' || strlen($name) > 120) {
