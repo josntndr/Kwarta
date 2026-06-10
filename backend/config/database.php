@@ -10,11 +10,38 @@ function kwarta_env(array $keys, ?string $default = null): ?string
     foreach ($keys as $key) {
         $value = getenv($key);
         if ($value !== false && trim((string) $value) !== '') {
-            return (string) $value;
+            return kwarta_clean_env_value($key, (string) $value);
         }
     }
 
     return $default;
+}
+
+function kwarta_clean_env_value(string $key, string $value): string
+{
+    $clean = trim($value);
+    $clean = trim($clean, "\"'");
+    $clean = preg_replace('/^(Value|Host|Database|User|Password|Port|MYSQL[A-Z_]*|DB_[A-Z_]*)\s*:\s*/i', '', $clean) ?? $clean;
+    $clean = trim($clean);
+
+    if (in_array($key, ['DB_HOST', 'MYSQLHOST'], true)) {
+        if (str_starts_with($clean, 'mysql://')) {
+            $parts = parse_url($clean);
+            if ($parts !== false && isset($parts['host'])) {
+                return (string) $parts['host'];
+            }
+        }
+
+        if (preg_match('/^([^:\s]+):\d+$/', $clean, $matches)) {
+            return $matches[1];
+        }
+    }
+
+    if (in_array($key, ['DB_PORT', 'MYSQLPORT'], true) && preg_match('/\d+/', $clean, $matches)) {
+        return $matches[0];
+    }
+
+    return $clean;
 }
 
 function kwarta_is_guest_route(): bool
