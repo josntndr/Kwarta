@@ -84,12 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once __DIR__ . '/../../backend/includes/header.php';
 ?>
 
-<div class="card auth-card">
-    <div class="card-body p-4 p-md-5">
-        <div class="text-center mb-4">
-            <?= mascot_img('logo', 'auth-logo mx-auto mb-3', 'Kwarta mascot logo') ?>
-            <h1 class="h3 fw-bold mb-1">Welcome back to Kwarta</h1>
-            <p class="text-muted mb-0">Sign in to view your dashboard.</p>
+<div class="card auth-card login-card">
+    <div class="card-body login-card-body">
+        <div class="text-center login-header">
+            <?= mascot_img('logo', 'auth-logo login-logo mx-auto', 'Kwarta mascot logo') ?>
+            <span class="login-kicker">Kwarta Player Login</span>
+            <h1>Welcome back</h1>
+            <p class="text-muted mb-0">Sign in to continue tracking your money quests.</p>
         </div>
 
         <?php if ($errors): ?>
@@ -109,25 +110,32 @@ require_once __DIR__ . '/../../backend/includes/header.php';
             </div>
         <?php endif; ?>
 
-        <form method="post" novalidate>
+        <form class="login-form" method="post" novalidate>
             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-            <div class="mb-3">
+            <div class="login-field">
                 <label class="form-label" for="email">Email</label>
-                <input class="form-control" id="email" type="email" name="email" value="<?= e($email) ?>" required>
+                <input class="form-control login-input" id="email" type="email" name="email" value="<?= e($email) ?>" placeholder="Enter your email" autocomplete="email" required>
             </div>
-            <div class="mb-4">
+            <div class="login-field">
                 <label class="form-label" for="password">Password</label>
-                <input class="form-control" id="password" type="password" name="password" required>
+                <div class="password-toggle-wrap">
+                    <input class="form-control login-input password-toggle-input" id="password" type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
+                    <button class="password-toggle-btn" type="button" aria-label="Show password" aria-pressed="false" data-password-toggle="password">
+                        <i class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
-            <div class="form-check mb-4">
-                <input class="form-check-input" id="keep_login" type="checkbox" name="keep_login" value="1" <?= $keepLogin ? 'checked' : '' ?>>
-                <label class="form-check-label" for="keep_login">Keep me logged in</label>
+            <div class="login-options">
+                <div class="form-check">
+                    <input class="form-check-input" id="keep_login" type="checkbox" name="keep_login" value="1" <?= $keepLogin ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="keep_login">Remember me</label>
+                </div>
+                <a class="login-link" href="forgot-password.php">Forgot password?</a>
             </div>
-            <button class="btn btn-success w-100" type="submit" <?= $cooldownSeconds > 0 ? 'disabled' : '' ?>>Login</button>
+            <button class="btn btn-success login-submit" type="submit" <?= $cooldownSeconds > 0 ? 'disabled' : '' ?>>Login</button>
         </form>
-        <div class="d-flex flex-column flex-sm-row justify-content-between gap-2 mt-4">
-            <a href="forgot-password.php">Forgot password?</a>
-            <span>New to Kwarta? <a href="register.php">Create an account</a></span>
+        <div class="login-register">
+            Don't have an account? <a href="register.php">Create an account</a>
         </div>
     </div>
 </div>
@@ -146,5 +154,25 @@ require_once __DIR__ . '/../../backend/includes/header.php';
         })();
     </script>
 <?php endif; ?>
+
+<script>
+    (() => {
+        document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+            const input = document.getElementById(button.dataset.passwordToggle);
+            const icon = button.querySelector('i');
+            if (!input || !icon) return;
+
+            button.addEventListener('click', () => {
+                const showPassword = input.type === 'password';
+                input.type = showPassword ? 'text' : 'password';
+                button.setAttribute('aria-label', showPassword ? 'Hide password' : 'Show password');
+                button.setAttribute('aria-pressed', showPassword ? 'true' : 'false');
+                icon.classList.toggle('bi-eye', !showPassword);
+                icon.classList.toggle('bi-eye-slash', showPassword);
+                input.focus();
+            });
+        });
+    })();
+</script>
 
 <?php require_once __DIR__ . '/../../backend/includes/footer.php'; ?>
