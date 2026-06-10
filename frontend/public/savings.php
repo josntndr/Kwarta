@@ -252,50 +252,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'user_id' => $userId,
                     ]);
 
-                    if (abs($targetAmount - $previousTarget) > 0.009) {
-                        log_savings_history(
-                            $pdo,
-                            $id,
-                            'target_updated',
-                            $targetAmount - $previousTarget,
-                            $previousTarget,
-                            $targetAmount,
-                            'Updated item price from ' . peso($previousTarget) . ' to ' . peso($targetAmount)
-                        );
+                    $targetChanged = abs($targetAmount - $previousTarget) > 0.009;
+                    $savedChanged = abs($savedAmount - $previousSaved) > 0.009;
+                    $changeNotes = [];
+
+                    if ($nameChanged) {
+                        $changeNotes[] = 'name';
                     }
 
-                    if (abs($savedAmount - $previousSaved) > 0.009) {
-                        $savedAction = $savedAmount > $previousSaved ? 'increase' : 'decrease';
-                        log_savings_history(
-                            $pdo,
-                            $id,
-                            'saved_updated',
-                            abs($savedAmount - $previousSaved),
-                            $previousSaved,
-                            $savedAmount,
-                            savings_action_label($savedAction) . 'd saved amount from ' . peso($previousSaved) . ' to ' . peso($savedAmount)
-                        );
+                    if ($descriptionChanged) {
+                        $changeNotes[] = 'description';
                     }
 
-                    if ($nameChanged || $descriptionChanged || $dateChanged) {
-                        $detailNote = $dateChanged
-                            ? 'Updated target month to ' . ($targetDate ? date('F Y', strtotime($targetDate)) : 'Not set')
-                            : 'Updated item details';
+                    if ($dateChanged) {
+                        $changeNotes[] = 'target month';
+                    }
+
+                    if ($targetChanged) {
+                        $changeNotes[] = 'price from ' . peso($previousTarget) . ' to ' . peso($targetAmount);
+                    }
+
+                    if ($savedChanged) {
+                        $changeNotes[] = 'saved amount from ' . peso($previousSaved) . ' to ' . peso($savedAmount);
+                    }
+
+                    if ($changeNotes) {
                         log_savings_history(
                             $pdo,
                             $id,
                             'goal_edited',
-                            null,
-                            $savedAmount,
-                            $savedAmount,
-                            $detailNote
+                            $savedChanged ? abs($savedAmount - $previousSaved) : null,
+                            $savedChanged ? $previousSaved : null,
+                            $savedChanged ? $savedAmount : null,
+                            'Updated ' . implode(', ', $changeNotes)
                         );
+
+                        $xpReward = $savedAmount >= $targetAmount ? 50 : 15;
+                        award_xp($pdo, $userId, 'savings_update', 'Updated a cart item', $xpReward);
+                        evaluate_achievements($pdo, $userId);
+                        flash('success', 'Cart item updated. +' . $xpReward . ' XP');
+                    } else {
+                        flash('success', 'No savings cart changes were made.');
                     }
 
-                    $xpReward = $savedAmount >= $targetAmount ? 50 : 15;
-                    award_xp($pdo, $userId, 'savings_update', 'Updated a cart item', $xpReward);
-                    evaluate_achievements($pdo, $userId);
-                    flash('success', 'Cart item updated. +' . $xpReward . ' XP');
                     redirect('savings.php#goal-' . $id);
                 }
             } else {
