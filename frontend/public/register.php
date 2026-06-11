@@ -70,44 +70,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once __DIR__ . '/../../backend/includes/header.php';
 ?>
 
-<div class="card auth-card">
-    <div class="card-body p-4 p-md-5">
-        <div class="text-center mb-4">
-            <?= mascot_img('logo', 'auth-logo mx-auto mb-3', 'Kwarta mascot logo') ?>
-            <h1 class="h3 fw-bold mb-1">Create your Kwarta account</h1>
-            <p class="text-muted mb-0">Track your money with simple, student-friendly tools.</p>
+<div class="card auth-card login-card register-card">
+    <div class="card-body login-card-body">
+        <div class="text-center login-header">
+            <?= mascot_img('logo', 'auth-logo login-logo mx-auto', 'Kwarta mascot logo') ?>
+            <span class="login-kicker">Kwarta Player Signup</span>
+            <h1>Create your account</h1>
+            <p class="text-muted mb-0">Start tracking your money quests with Kwarta.</p>
         </div>
 
         <?php if ($errors): ?>
-            <div class="alert alert-danger">
+            <div class="alert alert-danger pixel-alert" role="alert">
                 <?php foreach ($errors as $error): ?>
                     <div><?= e($error) ?></div>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
 
-        <form method="post" novalidate>
+        <form class="login-form" method="post" novalidate>
             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-            <div class="mb-3">
+            <div class="login-field">
                 <label class="form-label" for="name">Name</label>
-                <input class="form-control" id="name" name="name" value="<?= e($name) ?>" required maxlength="120">
+                <input class="form-control login-input" id="name" name="name" value="<?= e($name) ?>" placeholder="Enter your name" autocomplete="name" required maxlength="120">
             </div>
-            <div class="mb-3">
+            <div class="login-field">
                 <label class="form-label" for="email">Email</label>
-                <input class="form-control" id="email" type="email" name="email" value="<?= e($email) ?>" required maxlength="180">
+                <input class="form-control login-input" id="email" type="email" name="email" value="<?= e($email) ?>" placeholder="Enter your email" autocomplete="email" required maxlength="180">
             </div>
-            <div class="mb-3">
+            <div class="login-field">
                 <label class="form-label" for="password">Password</label>
-                <input class="form-control" id="password" type="password" name="password" required minlength="8">
+                <div class="password-toggle-wrap">
+                    <input class="form-control login-input password-toggle-input" id="password" type="password" name="password" placeholder="Create a password" autocomplete="new-password" required minlength="8">
+                    <button class="password-toggle-btn" type="button" aria-label="Show password" aria-pressed="false" data-password-toggle="password">
+                        <i class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
-            <div class="mb-4">
+            <div class="login-field">
                 <label class="form-label" for="confirm_password">Confirm Password</label>
-                <input class="form-control" id="confirm_password" type="password" name="confirm_password" required minlength="8">
+                <div class="password-toggle-wrap">
+                    <input class="form-control login-input password-toggle-input" id="confirm_password" type="password" name="confirm_password" placeholder="Confirm your password" autocomplete="new-password" required minlength="8">
+                    <button class="password-toggle-btn" type="button" aria-label="Show confirm password" aria-pressed="false" data-password-toggle="confirm_password">
+                        <i class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
-            <button class="btn btn-success w-100" type="submit">Register</button>
+            <button class="btn btn-success login-submit" type="submit">Register</button>
         </form>
-        <p class="text-center mt-4 mb-0">Already have an account? <a href="login.php">Log in</a></p>
+        <div class="login-register">
+            Already have an account? <a href="login.php">Log in</a>
+        </div>
     </div>
 </div>
+
+<script>
+    (() => {
+        document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+            const input = document.getElementById(button.dataset.passwordToggle);
+            const icon = button.querySelector('i');
+            if (!input || !icon) return;
+
+            button.addEventListener('click', () => {
+                const showPassword = input.type === 'password';
+                input.type = showPassword ? 'text' : 'password';
+                const fieldName = input.id === 'confirm_password' ? 'confirm password' : 'password';
+                button.setAttribute('aria-label', showPassword ? `Hide ${fieldName}` : `Show ${fieldName}`);
+                button.setAttribute('aria-pressed', showPassword ? 'true' : 'false');
+                icon.classList.toggle('bi-eye', !showPassword);
+                icon.classList.toggle('bi-eye-slash', showPassword);
+                input.focus();
+            });
+        });
+    })();
+</script>
 
 <?php require_once __DIR__ . '/../../backend/includes/footer.php'; ?>

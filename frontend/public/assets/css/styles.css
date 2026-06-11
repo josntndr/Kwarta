@@ -999,6 +999,10 @@ body::before {
     overflow: hidden;
 }
 
+.auth-card.register-card {
+    width: min(100%, 520px);
+}
+
 .login-card::before {
     content: "";
     position: absolute;
@@ -1030,7 +1034,7 @@ body::before {
     border: 3px solid var(--kwarta-line);
     border-radius: 14px;
     background: #fffaf0;
-    box-shadow: 5px 5px 0 rgba(107, 63, 29, 0.9);
+    box-shadow: none;
 }
 
 .login-kicker {
