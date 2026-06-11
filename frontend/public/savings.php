@@ -238,7 +238,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         SET name = :name,
                             description = :description,
                             target_amount = :target_amount,
-                            saved_amount = :saved_amount,
                             target_date = :target_date
                         WHERE id = :id AND user_id = :user_id
                     ');
@@ -246,14 +245,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'name' => $name,
                         'description' => $description ?: null,
                         'target_amount' => $targetAmount,
-                        'saved_amount' => $savedAmount,
                         'target_date' => $targetDate ?: null,
                         'id' => $id,
                         'user_id' => $userId,
                     ]);
 
                     $targetChanged = abs($targetAmount - $previousTarget) > 0.009;
-                    $savedChanged = abs($savedAmount - $previousSaved) > 0.009;
                     $changeNotes = [];
 
                     if ($nameChanged) {
@@ -272,22 +269,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $changeNotes[] = 'price from ' . peso($previousTarget) . ' to ' . peso($targetAmount);
                     }
 
-                    if ($savedChanged) {
-                        $changeNotes[] = 'saved amount from ' . peso($previousSaved) . ' to ' . peso($savedAmount);
-                    }
-
                     if ($changeNotes) {
                         log_savings_history(
                             $pdo,
                             $id,
                             'goal_edited',
-                            $savedChanged ? abs($savedAmount - $previousSaved) : null,
-                            $savedChanged ? $previousSaved : null,
-                            $savedChanged ? $savedAmount : null,
+                            null,
+                            null,
+                            null,
                             'Updated ' . implode(', ', $changeNotes)
                         );
 
-                        $xpReward = $savedAmount >= $targetAmount ? 50 : 15;
+                        $xpReward = $previousSaved >= $targetAmount ? 50 : 15;
                         award_xp($pdo, $userId, 'savings_update', 'Updated a cart item', $xpReward);
                         evaluate_achievements($pdo, $userId);
                         flash('success', 'Cart item updated. +' . $xpReward . ' XP');
@@ -423,10 +416,6 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                         <input class="form-control" id="target_amount" type="number" step="0.01" min="0.01" name="target_amount" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="saved_amount">Amount Saved</label>
-                        <input class="form-control" id="saved_amount" type="number" step="0.01" min="0" name="saved_amount" value="0">
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label" for="target_month">Target Month to Avail</label>
                         <input class="form-control" id="target_month" type="month" name="target_month">
                         <div class="form-text">Choose the month when you plan to buy or avail this item.</div>
@@ -544,13 +533,9 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                                                 <textarea class="form-control" name="description" rows="3" maxlength="255" placeholder="What is this item for?"><?= e($description) ?></textarea>
                                             </div>
                                             <div class="row g-3">
-                                                <div class="col-md-6">
+                                                <div class="col-12">
                                                     <label class="form-label">Item Price</label>
                                                     <input class="form-control" type="number" step="0.01" min="0.01" name="target_amount" value="<?= e((string) $goal['target_amount']) ?>" required>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label">Amount Saved</label>
-                                                    <input class="form-control" type="number" step="0.01" min="0" name="saved_amount" value="<?= e((string) $goal['saved_amount']) ?>" required>
                                                 </div>
                                                 <div class="col-12">
                                                     <label class="form-label">Target Month to Avail</label>
