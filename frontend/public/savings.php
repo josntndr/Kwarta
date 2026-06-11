@@ -61,6 +61,77 @@ function savings_history_time(string $timestamp): string
     return date('F j, Y, g:i A', strtotime($timestamp));
 }
 
+function savings_priority_for_goal(array $goal, DateTimeImmutable $currentMonth): array
+{
+    $target = (float) $goal['target_amount'];
+    $saved = (float) $goal['saved_amount'];
+    $isBought = (int) ($goal['is_bought'] ?? 0) === 1;
+    $isCompleted = $target > 0 && $saved >= $target;
+
+    if ($isCompleted || $isBought) {
+        return [
+            'key' => 'completed',
+            'label' => 'Completed',
+            'note' => 'Goal reached',
+            'rank' => 4,
+            'timestamp' => PHP_INT_MAX,
+        ];
+    }
+
+    if (empty($goal['target_date'])) {
+        return [
+            'key' => 'no-target',
+            'label' => 'No Target',
+            'note' => 'Set a target month',
+            'rank' => 3,
+            'timestamp' => PHP_INT_MAX - 1,
+        ];
+    }
+
+    $targetMonth = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $goal['target_date']);
+    if (!$targetMonth) {
+        return [
+            'key' => 'no-target',
+            'label' => 'No Target',
+            'note' => 'Set a target month',
+            'rank' => 3,
+            'timestamp' => PHP_INT_MAX - 1,
+        ];
+    }
+
+    $targetMonth = $targetMonth->modify('first day of this month');
+    $targetLabel = $targetMonth->format('F Y');
+    $timestamp = $targetMonth->getTimestamp();
+
+    if ($targetMonth->format('Y-m') === $currentMonth->format('Y-m')) {
+        return [
+            'key' => 'due-this-month',
+            'label' => 'Due This Month',
+            'note' => 'Priority: ' . $targetMonth->format('F'),
+            'rank' => 0,
+            'timestamp' => $timestamp,
+        ];
+    }
+
+    if ($targetMonth < $currentMonth) {
+        return [
+            'key' => 'overdue',
+            'label' => 'Overdue',
+            'note' => 'Target passed: ' . $targetLabel,
+            'rank' => 1,
+            'timestamp' => $timestamp,
+        ];
+    }
+
+    return [
+        'key' => 'upcoming',
+        'label' => 'Upcoming',
+        'note' => 'Target: ' . $targetLabel,
+        'rank' => 2,
+        'timestamp' => $timestamp,
+    ];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
 
@@ -322,11 +393,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt = $pdo->prepare('SELECT * FROM savings_goals WHERE user_id = :user_id ORDER BY created_at DESC');
 $stmt->execute(['user_id' => $userId]);
 $goals = $stmt->fetchAll();
+$currentMonth = new DateTimeImmutable('first day of this month', new DateTimeZone('Asia/Manila'));
+
+foreach ($goals as $index => $goal) {
+    $goals[$index]['priority'] = savings_priority_for_goal($goal, $currentMonth);
+}
+
+usort($goals, static function (array $a, array $b): int {
+    $rankCompare = ($a['priority']['rank'] ?? 99) <=> ($b['priority']['rank'] ?? 99);
+    if ($rankCompare !== 0) {
+        return $rankCompare;
+    }
+
+    $dateCompare = ($a['priority']['timestamp'] ?? PHP_INT_MAX) <=> ($b['priority']['timestamp'] ?? PHP_INT_MAX);
+    if ($dateCompare !== 0) {
+        return $dateCompare;
+    }
+
+    return strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+});
 
 $totalBudgetNeed = array_reduce($goals, static fn ($sum, $goal) => $sum + (float) $goal['target_amount'], 0.0);
 $currentBudget = array_reduce($goals, static fn ($sum, $goal) => $sum + (float) $goal['saved_amount'], 0.0);
 $remainingBudget = max(0.0, $totalBudgetNeed - $currentBudget);
 $cartProgress = $totalBudgetNeed > 0 ? min(100, (int) round(($currentBudget / $totalBudgetNeed) * 100)) : 0;
+$dueThisMonthCount = count(array_filter($goals, static fn ($goal) => ($goal['priority']['key'] ?? '') === 'due-this-month'));
+$overdueCount = count(array_filter($goals, static fn ($goal) => ($goal['priority']['key'] ?? '') === 'overdue'));
 
 $historiesByGoal = [];
 if ($goals) {
@@ -382,6 +474,15 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     <div class="progress-bar bg-success" style="width: <?= (int) $cartProgress ?>%"></div>
                 </div>
                 <div class="text-muted-small"><?= e(peso($remainingBudget)) ?> still needed.</div>
+            </div>
+            <div class="col-12">
+                <div class="savings-priority-summary">
+                    <span class="savings-status-badge due-this-month">Priority Month: <?= e($currentMonth->format('F Y')) ?></span>
+                    <span class="text-muted-small"><?= (int) $dueThisMonthCount ?> due this month</span>
+                    <?php if ($overdueCount > 0): ?>
+                        <span class="savings-status-badge overdue"><?= (int) $overdueCount ?> overdue</span>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -454,15 +555,20 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                 $percentage = $target > 0 ? min(100, round(($saved / $target) * 100)) : 0;
                 $remaining = max(0, $target - $saved);
                 $histories = $historiesByGoal[$goalId] ?? [];
+                $priority = $goal['priority'];
+                $priorityKey = $priority['key'];
+                $priorityLabel = $priority['label'];
+                $priorityNote = $priority['note'];
                 ?>
                 <div class="col-md-6" id="goal-<?= $goalId ?>">
-                    <button class="card content-card savings-goal-card h-100 text-start w-100" type="button" data-bs-toggle="modal" data-bs-target="#goalModal<?= $goalId ?>">
+                    <button class="card content-card savings-goal-card savings-priority-<?= e($priorityKey) ?> h-100 text-start w-100" type="button" data-bs-toggle="modal" data-bs-target="#goalModal<?= $goalId ?>">
                         <div class="card-body">
                             <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
                                 <div>
                                     <h2 class="h5 fw-bold mb-1"><?= e($goal['name']) ?></h2>
                                     <div class="d-flex flex-wrap align-items-center gap-2">
                                         <div class="text-muted-small">Tap to manage this item</div>
+                                        <span class="savings-status-badge <?= e($priorityKey) ?>"><?= e($priorityLabel) ?></span>
                                         <?php if ($isBought): ?>
                                             <span class="savings-status-badge bought">Already Bought</span>
                                         <?php endif; ?>
@@ -483,6 +589,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                             <?php if (!empty($goal['target_date'])): ?>
                                 <div class="text-muted-small mt-2">Target: <?= e(date('F Y', strtotime($goal['target_date']))) ?></div>
                             <?php endif; ?>
+                            <div class="savings-priority-note mt-2"><?= e($priorityNote) ?></div>
                             <div class="savings-card-footer mt-3">
                                 <span>Remaining</span>
                                 <strong><?= e(peso($remaining)) ?></strong>
@@ -507,6 +614,10 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                                         <div class="d-flex align-items-center gap-3 mb-3">
                                             <?= mascot_img('savings', 'mascot-section-img', 'Kwarta savings mascot') ?>
                                             <div class="flex-grow-1">
+                                                <div class="d-flex flex-wrap gap-2 mb-2">
+                                                    <span class="savings-status-badge <?= e($priorityKey) ?>"><?= e($priorityLabel) ?></span>
+                                                    <span class="savings-priority-note"><?= e($priorityNote) ?></span>
+                                                </div>
                                                 <div class="d-flex justify-content-between text-muted-small mb-1">
                                                     <span><?= (int) $percentage ?>% saved</span>
                                                     <span><?= e(peso($remaining)) ?> remaining</span>

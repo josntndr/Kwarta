@@ -1722,6 +1722,34 @@ input[type="number"]::-webkit-inner-spin-button {
     cursor: pointer;
 }
 
+.savings-goal-card.savings-priority-due-this-month {
+    border-color: var(--secondary);
+    background:
+        linear-gradient(90deg, rgba(252, 209, 22, 0.18) 1px, transparent 1px),
+        linear-gradient(rgba(252, 209, 22, 0.14) 1px, transparent 1px),
+        linear-gradient(135deg, rgba(255, 248, 231, 0.96), rgba(252, 209, 22, 0.34));
+    background-size: 18px 18px, 18px 18px, auto;
+    box-shadow: 7px 7px 0 var(--shadow), inset 0 0 0 3px rgba(252, 209, 22, 0.28);
+}
+
+.savings-goal-card.savings-priority-overdue {
+    border-color: var(--danger);
+    background:
+        linear-gradient(90deg, rgba(206, 17, 38, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(206, 17, 38, 0.08) 1px, transparent 1px),
+        linear-gradient(135deg, rgba(255, 248, 231, 0.96), rgba(206, 17, 38, 0.12));
+    background-size: 18px 18px, 18px 18px, auto;
+}
+
+.savings-goal-card.savings-priority-completed {
+    border-color: var(--success);
+    background:
+        linear-gradient(90deg, rgba(46, 139, 87, 0.1) 1px, transparent 1px),
+        linear-gradient(rgba(46, 139, 87, 0.1) 1px, transparent 1px),
+        linear-gradient(135deg, rgba(255, 248, 231, 0.96), rgba(46, 139, 87, 0.16));
+    background-size: 18px 18px, 18px 18px, auto;
+}
+
 .savings-goal-card:hover,
 .savings-goal-card:focus-visible {
     color: var(--kwarta-ink);
@@ -1760,6 +1788,64 @@ input[type="number"]::-webkit-inner-spin-button {
     border-color: var(--success);
     background: var(--secondary);
     color: var(--primary);
+}
+
+.savings-status-badge.due-this-month {
+    border-color: var(--secondary);
+    background: var(--secondary);
+    color: var(--primary);
+}
+
+.savings-status-badge.overdue {
+    border-color: var(--danger);
+    background: var(--danger);
+    color: #fff8e7;
+}
+
+.savings-status-badge.upcoming {
+    border-color: var(--accent);
+    background: rgba(0, 56, 168, 0.12);
+    color: var(--accent);
+}
+
+.savings-status-badge.completed {
+    border-color: var(--success);
+    background: var(--success);
+    color: #fff8e7;
+}
+
+.savings-status-badge.no-target {
+    border-color: rgba(107, 63, 29, 0.48);
+    background: rgba(255, 248, 231, 0.82);
+    color: var(--kwarta-muted);
+}
+
+.savings-priority-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 2px dashed rgba(107, 63, 29, 0.35);
+}
+
+.savings-priority-note {
+    width: fit-content;
+    color: var(--kwarta-muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.savings-priority-due-this-month .savings-priority-note {
+    color: var(--primary);
+}
+
+.savings-priority-overdue .savings-priority-note {
+    color: var(--danger);
+}
+
+.savings-priority-completed .savings-priority-note {
+    color: var(--success);
 }
 
 .import-sample-box {
