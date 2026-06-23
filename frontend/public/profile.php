@@ -194,10 +194,10 @@ require_once __DIR__ . '/../../backend/includes/header.php';
             <div class="card-body">
                 <h2 class="h5 fw-bold mb-3">Financial Preferences</h2>
                 <div class="settings-list">
-                    <label class="settings-row"><span>Default currency</span><strong>PHP</strong></label>
-                    <label class="settings-row"><span>Monthly receipt reminders</span><input class="form-check-input" type="checkbox" checked></label>
-                    <label class="settings-row"><span>Budget warning notifications</span><input class="form-check-input" type="checkbox" checked></label>
-                    <label class="settings-row"><span>Pixel theme</span><input class="form-check-input" type="checkbox" checked></label>
+                    <div class="settings-row"><span>Default currency</span><strong>PHP (Philippine Peso)</strong></div>
+                    <div class="settings-row"><span>Budget warnings</span><a class="fw-bold text-decoration-none" href="budgets.php">On Budget page</a></div>
+                    <div class="settings-row"><span>Monthly receipt</span><a class="fw-bold text-decoration-none" href="receipt.php">Generate anytime</a></div>
+                    <div class="settings-row"><span>Pixel theme</span><strong>Always on</strong></div>
                 </div>
             </div>
         </div>

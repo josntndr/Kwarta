@@ -2322,3 +2322,157 @@ input[type="number"]::-webkit-inner-spin-button {
         text-overflow: ellipsis;
     }
 }
+
+/* ============================================================
+   Polish layer: consistent alerts, buttons, focus, forms, tables
+   ============================================================ */
+
+/* Themed alerts so inline form alerts match the pixel flash alerts */
+.alert {
+    border: 3px solid var(--kwarta-line);
+    border-radius: 0;
+    box-shadow: var(--pixel-shadow-soft);
+    font-weight: 600;
+}
+
+.alert-danger {
+    background: #f7d4d8;
+    color: #7a0b18;
+}
+
+.alert-success {
+    background: #dcefd5;
+    color: var(--primary);
+}
+
+.alert-warning {
+    background: #fdeec0;
+    color: #6b4a02;
+}
+
+.alert-info {
+    background: #d3e0fb;
+    color: #0b2a6b;
+}
+
+.alert .alert-link {
+    color: inherit;
+    text-decoration: underline;
+}
+
+/* Pixel treatment for solid button variants (outline variants keep their look) */
+.btn-warning,
+.btn-primary,
+.btn-danger,
+.btn-info,
+.btn-secondary,
+.btn-dark {
+    border-color: var(--kwarta-line);
+    box-shadow: 4px 4px 0 var(--kwarta-line);
+}
+
+.btn-warning:hover,
+.btn-warning:focus-visible,
+.btn-primary:hover,
+.btn-primary:focus-visible,
+.btn-danger:hover,
+.btn-danger:focus-visible,
+.btn-info:hover,
+.btn-info:focus-visible,
+.btn-secondary:hover,
+.btn-secondary:focus-visible,
+.btn-dark:hover,
+.btn-dark:focus-visible {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--kwarta-line);
+}
+
+.btn:active {
+    transform: translate(1px, 1px);
+}
+
+.btn:disabled,
+.btn.disabled {
+    transform: none;
+    box-shadow: 3px 3px 0 rgba(43, 26, 15, 0.25);
+}
+
+/* Clear keyboard focus everywhere for accessibility */
+.btn:focus-visible,
+a:focus-visible,
+.form-check-input:focus-visible {
+    outline: 3px solid rgba(0, 56, 168, 0.55);
+    outline-offset: 2px;
+}
+
+/* Form consistency: bolder labels, readable help text, larger touch targets */
+.form-label {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.form-text {
+    color: var(--kwarta-muted);
+}
+
+.invalid-feedback {
+    font-weight: 700;
+}
+
+.form-control,
+.form-select {
+    min-height: 44px;
+}
+
+.input-group > .form-control,
+.input-group > .form-select {
+    min-height: 44px;
+}
+
+/* Table readability: comfortable padding and row hover for scanning */
+.table > :not(caption) > * > * {
+    padding: 0.7rem 0.75rem;
+}
+
+.content-card .table tbody tr {
+    transition: background-color 140ms ease;
+}
+
+.content-card .table tbody tr:hover {
+    background: rgba(252, 209, 22, 0.12);
+}
+
+/* Budget category tiles in budgets.php use Bootstrap border utilities;
+   square them off to match the pixel theme */
+.border.rounded-2 {
+    border: 2px solid var(--border) !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0 rgba(43, 26, 15, 0.18);
+}
+
+/* Honest "shortcut" cards (Game Hub) - no fake progress meter */
+.shortcut-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    height: 100%;
+}
+
+.shortcut-card .shortcut-meta {
+    margin-top: auto;
+}
+
+@media (max-width: 575.98px) {
+    .page-header-title {
+        font-size: 1.4rem;
+    }
+
+    .btn-warning,
+    .btn-primary,
+    .btn-danger,
+    .btn-info,
+    .btn-secondary,
+    .btn-dark {
+        box-shadow: 3px 3px 0 var(--kwarta-line);
+    }
+}

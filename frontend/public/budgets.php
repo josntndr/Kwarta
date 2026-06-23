@@ -10,6 +10,7 @@ $month = $_GET['month'] ?? current_month();
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
     $month = current_month();
 }
+[$monthStart, $monthEnd] = month_range($month);
 
 $errors = [];
 $expenseCategories = get_categories($pdo, 'expense');
@@ -68,10 +69,11 @@ $stmt = $pdo->prepare('
        AND b.user_id = :budget_user_id
        AND b.month = :budget_month
     LEFT JOIN transactions t
-        ON t.category_id = c.id
+       ON t.category_id = c.id
        AND t.user_id = :transaction_user_id
        AND t.type = "expense"
-       AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :transaction_month
+       AND t.transaction_date >= :month_start
+       AND t.transaction_date < :month_end
     WHERE c.type IN ("expense", "both")
     GROUP BY c.id, c.name, b.amount
     ORDER BY c.name
@@ -80,7 +82,8 @@ $stmt->execute([
     'budget_user_id' => $userId,
     'budget_month' => $month,
     'transaction_user_id' => $userId,
-    'transaction_month' => $month,
+    'month_start' => $monthStart,
+    'month_end' => $monthEnd,
 ]);
 $budgets = $stmt->fetchAll();
 

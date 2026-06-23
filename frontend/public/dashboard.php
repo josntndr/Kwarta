@@ -10,18 +10,33 @@ $month = $_GET['month'] ?? current_month();
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
     $month = current_month();
 }
+[$monthStart, $monthEnd] = month_range($month);
+$chartStart = date('Y-m-01', strtotime('-5 months'));
+$chartEnd = date('Y-m-d', strtotime('first day of next month'));
 
 $stmt = $pdo->prepare('
     SELECT
         COALESCE(SUM(CASE WHEN type = "income" THEN amount ELSE 0 END), 0) AS total_income,
-        COALESCE(SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END), 0) AS total_expenses
+        COALESCE(SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END), 0) AS total_expenses,
+        COALESCE(SUM(CASE WHEN type = "income" AND transaction_date >= :income_month_start AND transaction_date < :income_month_end THEN amount ELSE 0 END), 0) AS monthly_income,
+        COALESCE(SUM(CASE WHEN type = "expense" AND transaction_date >= :expense_month_start AND transaction_date < :expense_month_end THEN amount ELSE 0 END), 0) AS monthly_expenses
     FROM transactions
     WHERE user_id = :user_id
 ');
-$stmt->execute(['user_id' => $userId]);
+$stmt->execute([
+    'user_id' => $userId,
+    'income_month_start' => $monthStart,
+    'income_month_end' => $monthEnd,
+    'expense_month_start' => $monthStart,
+    'expense_month_end' => $monthEnd,
+]);
 $totals = $stmt->fetch();
 $totalIncome = (float) $totals['total_income'];
 $totalExpenses = (float) $totals['total_expenses'];
+$monthlyIncome = (float) $totals['monthly_income'];
+$monthlyExpenses = (float) $totals['monthly_expenses'];
+$monthlySpending = $monthlyExpenses;
+$monthlySavings = $monthlyIncome - $monthlyExpenses;
 $balance = $totalIncome - $totalExpenses;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_current_money') {
@@ -42,30 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
 $currentMoney = get_current_money($pdo, $userId, $balance);
 
 $stmt = $pdo->prepare('
-    SELECT COALESCE(SUM(amount), 0)
-    FROM transactions
-    WHERE user_id = :user_id
-      AND type = "expense"
-      AND DATE_FORMAT(transaction_date, "%Y-%m") = :month
-');
-$stmt->execute(['user_id' => $userId, 'month' => $month]);
-$monthlySpending = (float) $stmt->fetchColumn();
-
-$stmt = $pdo->prepare('
-    SELECT
-        COALESCE(SUM(CASE WHEN type = "income" THEN amount ELSE 0 END), 0) AS monthly_income,
-        COALESCE(SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END), 0) AS monthly_expenses
-    FROM transactions
-    WHERE user_id = :user_id
-      AND DATE_FORMAT(transaction_date, "%Y-%m") = :month
-');
-$stmt->execute(['user_id' => $userId, 'month' => $month]);
-$monthlyTotals = $stmt->fetch();
-$monthlyIncome = (float) $monthlyTotals['monthly_income'];
-$monthlyExpenses = (float) $monthlyTotals['monthly_expenses'];
-$monthlySavings = $monthlyIncome - $monthlyExpenses;
-
-$stmt = $pdo->prepare('
     SELECT COALESCE(SUM(b.amount), 0) AS budget_total,
            COALESCE(SUM(spent.spent_amount), 0) AS spent_total
     FROM budgets b
@@ -74,7 +65,8 @@ $stmt = $pdo->prepare('
         FROM transactions
         WHERE user_id = :spent_user_id
           AND type = "expense"
-          AND DATE_FORMAT(transaction_date, "%Y-%m") = :spent_month
+          AND transaction_date >= :month_start
+          AND transaction_date < :month_end
         GROUP BY category_id
     ) spent ON spent.category_id = b.category_id
     WHERE b.user_id = :budget_user_id
@@ -82,7 +74,8 @@ $stmt = $pdo->prepare('
 ');
 $stmt->execute([
     'spent_user_id' => $userId,
-    'spent_month' => $month,
+    'month_start' => $monthStart,
+    'month_end' => $monthEnd,
     'budget_user_id' => $userId,
     'budget_month' => $month,
 ]);
@@ -120,11 +113,16 @@ $stmt = $pdo->prepare('
     JOIN categories c ON c.id = t.category_id
     WHERE t.user_id = :user_id
       AND t.type = "expense"
-      AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :month
+      AND t.transaction_date >= :month_start
+      AND t.transaction_date < :month_end
     GROUP BY c.id, c.name
     ORDER BY total DESC
 ');
-$stmt->execute(['user_id' => $userId, 'month' => $month]);
+$stmt->execute([
+    'user_id' => $userId,
+    'month_start' => $monthStart,
+    'month_end' => $monthEnd,
+]);
 $categoryRows = $stmt->fetchAll();
 
 $stmt = $pdo->prepare('
@@ -133,11 +131,16 @@ $stmt = $pdo->prepare('
            COALESCE(SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END), 0) AS expenses
     FROM transactions
     WHERE user_id = :user_id
-      AND DATE_FORMAT(transaction_date, "%Y-%m") >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 5 MONTH), "%Y-%m")
+      AND transaction_date >= :chart_start
+      AND transaction_date < :chart_end
     GROUP BY month_key
     ORDER BY month_key
 ');
-$stmt->execute(['user_id' => $userId]);
+$stmt->execute([
+    'user_id' => $userId,
+    'chart_start' => $chartStart,
+    'chart_end' => $chartEnd,
+]);
 $monthRows = $stmt->fetchAll();
 $monthMap = [];
 foreach ($monthRows as $row) {

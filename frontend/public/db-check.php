@@ -114,8 +114,15 @@ try {
 
     $stmt = $pdo->query("SHOW TABLES LIKE 'users'");
     $usersTableExists = (bool) $stmt->fetchColumn();
+    $schemaReady = false;
+    if (kwarta_table_exists($pdo, 'schema_migrations')) {
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM schema_migrations WHERE version = :version');
+        $stmt->execute(['version' => KWARTA_SCHEMA_VERSION]);
+        $schemaReady = (int) $stmt->fetchColumn() > 0;
+    }
 
     echo 'Users table: ' . ($usersTableExists ? 'found' : 'missing') . "\n";
+    echo 'Schema migration: ' . ($schemaReady ? KWARTA_SCHEMA_VERSION : 'not applied') . "\n";
     echo 'Status: ' . ($usersTableExists ? 'ready' : 'database schema missing') . "\n";
 } catch (Throwable $error) {
     error_log('[Kwarta db-check] ' . $error->getMessage());

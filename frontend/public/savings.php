@@ -8,15 +8,6 @@ $pageTitle = 'Savings Cart';
 $userId = current_user_id();
 $errors = [];
 
-if (function_exists('kwarta_repair_savings_tables')) {
-    try {
-        kwarta_repair_savings_tables($pdo);
-    } catch (Throwable $error) {
-        error_log('[Kwarta savings schema] ' . $error->getMessage());
-        $errors[] = 'Savings Cart is preparing your online database. Please refresh and try again.';
-    }
-}
-
 function savings_goal_for_user(PDO $pdo, int $goalId, int $userId): ?array
 {
     $stmt = $pdo->prepare('SELECT * FROM savings_goals WHERE id = :id AND user_id = :user_id LIMIT 1');
@@ -27,18 +18,32 @@ function savings_goal_for_user(PDO $pdo, int $goalId, int $userId): ?array
 
 function log_savings_history(PDO $pdo, int $goalId, string $actionType, ?float $amountChanged, ?float $previousAmount, ?float $newAmount, string $notes = ''): void
 {
-    $stmt = $pdo->prepare('
-        INSERT INTO savings_goal_histories (savings_goal_id, action_type, amount_changed, previous_amount, new_amount, notes)
-        VALUES (:savings_goal_id, :action_type, :amount_changed, :previous_amount, :new_amount, :notes)
-    ');
-    $stmt->execute([
-        'savings_goal_id' => $goalId,
-        'action_type' => $actionType,
-        'amount_changed' => $amountChanged,
-        'previous_amount' => $previousAmount,
-        'new_amount' => $newAmount,
-        'notes' => $notes ?: null,
-    ]);
+    try {
+        $stmt = $pdo->prepare('
+            INSERT INTO savings_goal_histories (savings_goal_id, action_type, amount_changed, previous_amount, new_amount, notes)
+            VALUES (:savings_goal_id, :action_type, :amount_changed, :previous_amount, :new_amount, :notes)
+        ');
+        $stmt->execute([
+            'savings_goal_id' => $goalId,
+            'action_type' => $actionType,
+            'amount_changed' => $amountChanged,
+            'previous_amount' => $previousAmount,
+            'new_amount' => $newAmount,
+            'notes' => $notes ?: null,
+        ]);
+    } catch (Throwable $error) {
+        error_log('[Kwarta savings history] ' . $error->getMessage());
+    }
+}
+
+function reward_savings_action(PDO $pdo, int $userId, string $actionKey, string $description, int $xp): void
+{
+    try {
+        award_xp($pdo, $userId, $actionKey, $description, $xp);
+        evaluate_achievements($pdo, $userId);
+    } catch (Throwable $error) {
+        error_log('[Kwarta savings reward] ' . $error->getMessage());
+    }
 }
 
 function savings_action_label(string $actionType): string
@@ -177,8 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             if ($newStatus) {
-                award_xp($pdo, $userId, 'savings_bought', 'Marked a cart item as bought', 25);
-                evaluate_achievements($pdo, $userId);
+                reward_savings_action($pdo, $userId, 'savings_bought', 'Marked a cart item as bought', 25);
                 flash('success', 'Nice! Item marked as already bought. +25 XP');
             } else {
                 flash('success', 'Already bought status removed.');
@@ -251,8 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
 
                 $xpReward = $action === 'increase' ? 15 : 5;
-                award_xp($pdo, $userId, 'savings_' . $action, $label . ' cart item savings', $xpReward);
-                evaluate_achievements($pdo, $userId);
+                reward_savings_action($pdo, $userId, 'savings_' . $action, $label . ' cart item savings', $xpReward);
                 flash('success', $label . ' savings by ' . peso($amount) . '. +' . $xpReward . ' XP');
                 redirect('savings.php#goal-' . $id);
             }
@@ -284,7 +287,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Saved amount must be zero or greater.';
         }
 
-        if ($targetMonth !== '' && !preg_match('/^\d{4}-\d{2}$/', $targetMonth)) {
+        if ($targetMonth === '') {
+            $errors[] = 'Target month is required.';
+        } elseif (!preg_match('/^\d{4}-\d{2}$/', $targetMonth)) {
             $errors[] = 'Target month must be valid.';
         }
 
@@ -352,9 +357,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         );
 
                         $xpReward = $previousSaved >= $targetAmount ? 50 : 15;
-                        award_xp($pdo, $userId, 'savings_update', 'Updated a cart item', $xpReward);
-                        evaluate_achievements($pdo, $userId);
-                        flash('success', 'Cart item updated. +' . $xpReward . ' XP');
+                        reward_savings_action($pdo, $userId, 'savings_update', 'Updated a cart item', $xpReward);
+                        flash('success', 'Savings item updated successfully. +' . $xpReward . ' XP');
                     } else {
                         flash('success', 'No savings cart changes were made.');
                     }
@@ -377,9 +381,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $newGoalId = (int) $pdo->lastInsertId();
                 log_savings_history($pdo, $newGoalId, 'goal_created', $savedAmount, 0.0, $savedAmount, 'Added item to cart');
-                award_xp($pdo, $userId, 'savings_create', 'Added an item to the savings cart', 20);
-                evaluate_achievements($pdo, $userId);
-                flash('success', 'Item added to cart. +20 XP');
+                reward_savings_action($pdo, $userId, 'savings_create', 'Added an item to the savings cart', 20);
+                flash('success', 'Item added to Savings Cart successfully. +20 XP');
                 redirect('savings.php#goal-' . $newGoalId);
             }
         }
@@ -518,7 +521,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="target_month">Target Month to Avail</label>
-                        <input class="form-control" id="target_month" type="month" name="target_month">
+                        <input class="form-control" id="target_month" type="month" name="target_month" required>
                         <div class="form-text">Choose the month when you plan to buy or avail this item.</div>
                     </div>
                     <button class="btn btn-success w-100" type="submit">Add to Cart</button>
@@ -650,7 +653,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                                                 </div>
                                                 <div class="col-12">
                                                     <label class="form-label">Target Month to Avail</label>
-                                                    <input class="form-control" type="month" name="target_month" value="<?= e($goal['target_date'] ? date('Y-m', strtotime($goal['target_date'])) : '') ?>">
+                                                    <input class="form-control" type="month" name="target_month" value="<?= e($goal['target_date'] ? date('Y-m', strtotime($goal['target_date'])) : '') ?>" required>
                                                     <div class="form-text">Choose the month when you plan to buy or avail this item.</div>
                                                 </div>
                                             </div>

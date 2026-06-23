@@ -35,7 +35,9 @@ CREATE TABLE transactions (
     CONSTRAINT fk_transactions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_transactions_category FOREIGN KEY (category_id) REFERENCES categories(id),
     INDEX idx_transactions_user_date (user_id, transaction_date),
-    INDEX idx_transactions_user_type (user_id, type)
+    INDEX idx_transactions_user_type (user_id, type),
+    INDEX idx_transactions_user_type_date (user_id, type, transaction_date),
+    INDEX idx_transactions_user_category_type_date (user_id, category_id, type, transaction_date)
 ) ENGINE=InnoDB;
 
 CREATE TABLE budgets (
@@ -48,7 +50,8 @@ CREATE TABLE budgets (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_budgets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_budgets_category FOREIGN KEY (category_id) REFERENCES categories(id),
-    UNIQUE KEY unique_user_category_month (user_id, category_id, month)
+    UNIQUE KEY unique_user_category_month (user_id, category_id, month),
+    INDEX idx_budgets_user_month (user_id, month)
 ) ENGINE=InnoDB;
 
 CREATE TABLE savings_goals (
@@ -63,7 +66,9 @@ CREATE TABLE savings_goals (
     bought_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_savings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT fk_savings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_savings_user_target (user_id, target_date),
+    INDEX idx_savings_user_created (user_id, created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE savings_goal_histories (
@@ -84,7 +89,8 @@ CREATE TABLE wallets (
     user_id INT UNSIGNED PRIMARY KEY,
     current_money DECIMAL(12, 2) NOT NULL DEFAULT 0,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_wallets_updated (updated_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE user_game_stats (
@@ -195,6 +201,11 @@ CREATE TABLE password_resets (
     INDEX idx_password_resets_email (email)
 ) ENGINE=InnoDB;
 
+CREATE TABLE schema_migrations (
+    version VARCHAR(80) PRIMARY KEY,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 INSERT INTO categories (name, type) VALUES
 ('Food', 'expense'),
 ('Transportation', 'expense'),
@@ -220,3 +231,6 @@ INSERT INTO challenges (challenge_key, name, description, target, xp_reward, cad
 ('daily_three_logs', 'Daily Log Combo', 'Log 3 transactions today.', 3, 60, 'daily', 'transactions_today'),
 ('weekly_save_500', 'Save 500 This Week', 'Record at least PHP 500 in savings this week.', 500, 100, 'weekly', 'savings_week'),
 ('food_budget_watch', 'Food Budget Watch', 'Keep Food spending within budget this month.', 1, 80, 'monthly', 'food_budget_safe');
+
+INSERT INTO schema_migrations (version) VALUES
+('2026_06_12_performance_indexes');

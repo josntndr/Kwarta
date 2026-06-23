@@ -178,6 +178,7 @@ function restore_auth_cookie(): void
     $_SESSION['role'] = $user['role'] ?? 'user';
     $_SESSION['keep_logged_in'] = !empty($data['keep']) && ($_SESSION['role'] ?? 'user') !== 'admin';
     $_SESSION['last_activity_at'] = time();
+    $_SESSION['role_checked_at'] = time();
 }
 
 function require_login(): void
@@ -390,6 +391,7 @@ function login_user(array $user, bool $keepLoggedIn = false): void
     $_SESSION['role'] = $user['role'] ?? 'user';
     $_SESSION['keep_logged_in'] = ($_SESSION['role'] ?? 'user') === 'admin' ? false : $keepLoggedIn;
     $_SESSION['last_activity_at'] = time();
+    $_SESSION['role_checked_at'] = time();
 
     $params = session_get_cookie_params();
     $expires = $_SESSION['keep_logged_in'] ? time() + (60 * 60 * 24 * 30) : 0;
@@ -453,7 +455,8 @@ function enforce_session_timeout(): void
     }
 
     global $pdo;
-    if (isset($pdo)) {
+    $shouldRefreshUser = (time() - (int) ($_SESSION['role_checked_at'] ?? 0)) > 300;
+    if ($shouldRefreshUser && isset($pdo)) {
         try {
             $stmt = $pdo->prepare('SELECT role, status FROM users WHERE id = :id LIMIT 1');
             $stmt->execute(['id' => current_user_id()]);
@@ -465,6 +468,7 @@ function enforce_session_timeout(): void
             }
 
             $_SESSION['role'] = $user['role'] ?? 'user';
+            $_SESSION['role_checked_at'] = time();
         } catch (PDOException) {
             $_SESSION['role'] = $_SESSION['role'] ?? 'user';
         }

@@ -6,7 +6,7 @@ require_login();
 
 $pageTitle = 'Game Hub';
 $userId = current_user_id();
-$game = gamification_profile($pdo, $userId);
+$game = gamification_profile($pdo, $userId, true);
 $stats = $game['stats'];
 $unlockedBadges = array_filter($game['achievements'], static fn ($achievement) => !empty($achievement['unlocked_at']));
 $completedQuests = array_filter($game['challenges'], static fn ($challenge) => !empty($challenge['complete']));
@@ -86,26 +86,31 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                             </div>
                         </div>
                     <?php endforeach; ?>
+                    <div class="col-12">
+                        <div class="text-muted-small text-uppercase fw-bold mt-2 mb-1">Quick Actions</div>
+                    </div>
                     <div class="col-md-6">
-                        <div class="quest-card mission-card">
-                            <div class="d-flex justify-content-between gap-2 mb-2">
-                                <strong>Monthly Receipt Review</strong>
-                                <span class="badge text-bg-warning">+20 XP habit</span>
+                        <div class="quest-card mission-card shortcut-card">
+                            <div class="d-flex justify-content-between gap-2 mb-1">
+                                <strong>Review Monthly Receipt</strong>
+                                <span class="badge text-bg-secondary">Shortcut</span>
                             </div>
-                            <div class="text-muted-small mb-3">Review your monthly receipt to understand where your money went.</div>
-                            <div class="progress mb-2"><div class="progress-bar bg-warning" style="width: 65%"></div></div>
-                            <a class="btn btn-sm btn-outline-primary mt-2" href="receipt.php"><i class="bi bi-receipt"></i> Review Receipt</a>
+                            <div class="text-muted-small">See where your money went this month in a printable receipt summary.</div>
+                            <div class="shortcut-meta">
+                                <a class="btn btn-sm btn-outline-primary" href="receipt.php"><i class="bi bi-receipt"></i> Review Receipt</a>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="quest-card mission-card">
-                            <div class="d-flex justify-content-between gap-2 mb-2">
-                                <strong>Add One Savings Item</strong>
-                                <span class="badge text-bg-warning">+25 XP</span>
+                        <div class="quest-card mission-card shortcut-card">
+                            <div class="d-flex justify-content-between gap-2 mb-1">
+                                <strong>Plan a Savings Item</strong>
+                                <span class="badge text-bg-secondary">Shortcut</span>
                             </div>
-                            <div class="text-muted-small mb-3">Plan a cart item and build a clear target for your next purchase.</div>
-                            <div class="progress mb-2"><div class="progress-bar bg-warning" style="width: <?= count($unlockedBadges) ? 100 : 35 ?>%"></div></div>
-                            <a class="btn btn-sm btn-outline-success mt-2" href="savings.php"><i class="bi bi-piggy-bank"></i> Open Savings</a>
+                            <div class="text-muted-small">Add an item to your savings cart and set a clear target for your next purchase.</div>
+                            <div class="shortcut-meta">
+                                <a class="btn btn-sm btn-outline-success" href="savings.php"><i class="bi bi-piggy-bank"></i> Open Savings</a>
+                            </div>
                         </div>
                     </div>
                 </div>

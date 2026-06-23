@@ -36,6 +36,7 @@
     { "src": "/forgot-password/?", "dest": "/frontend/public/forgot-password.php" },
     { "src": "/reset-password/?", "dest": "/frontend/public/reset-password.php" },
     { "src": "/db-check/?", "dest": "/frontend/public/db-check.php" },
+    { "src": "/setup-database/?", "dest": "/frontend/public/setup-database.php" },
     { "src": "/logout/?", "dest": "/frontend/public/logout.php" },
     { "src": "/(.*\\.php)", "dest": "/frontend/public/$1" },
     { "src": "/?", "dest": "/frontend/public/index.php" }

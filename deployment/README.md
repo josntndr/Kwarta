@@ -36,6 +36,26 @@ Use [apache-vhost.conf](apache-vhost.conf) as a starting point. Replace `C:/path
 
 Use [nginx.conf](nginx.conf) as a starting point. Replace `/path/to/Kwarta` with your real project path and confirm your PHP-FPM socket or host/port.
 
+## Continuous Integration / Continuous Deployment
+
+CI runs through GitHub Actions in [../.github/workflows/ci.yml](../.github/workflows/ci.yml):
+
+- **CI (`php-lint`)** runs on every push and pull request to `main`. It validates `composer.json` and runs `php -l` on every `.php` file, so syntax errors are caught before they reach production.
+- **CD (`deploy`)** runs only on pushes to `main`, after CI passes.
+
+Two CD paths are supported:
+
+1. **Vercel Git integration (default).** Connect the GitHub repo to the Vercel project once in the Vercel dashboard. Vercel then auto-deploys every push to `main` to production. No secrets are needed in GitHub for this; the workflow's deploy job simply no-ops.
+2. **Vercel CLI from GitHub Actions (optional).** To deploy from the Action itself, add these repository secrets in **GitHub > Settings > Secrets and variables > Actions**:
+
+   ```text
+   VERCEL_TOKEN        # Vercel account token
+   VERCEL_ORG_ID       # from .vercel/project.json after `vercel link`
+   VERCEL_PROJECT_ID   # from .vercel/project.json after `vercel link`
+   ```
+
+   When all three are present, the deploy job builds and promotes a production deployment with the Vercel CLI.
+
 ## Vercel
 
 This project includes [../vercel.json](../vercel.json) for a Vercel PHP deployment using a PHP runtime. Configure these environment variables in Vercel:
@@ -80,6 +100,7 @@ DB_NAME=your-database-name
 DB_USER=your-database-user
 DB_PASSWORD=your-database-password
 APP_SECRET=long-random-session-secret
+SETUP_TOKEN=long-random-one-time-setup-secret
 APP_URL=https://kwarta-financial-tracker.vercel.app
 APP_ENV=production
 ```
@@ -91,6 +112,28 @@ DATABASE_URL=mysql://user:password@host:3306/database_name
 ```
 
 Redeploy after changing environment variables. Without a real hosted MySQL database, registration and login cannot work on Vercel even if the PHP deployment is successful.
+
+### Production Schema Setup
+
+Kwarta no longer repairs or imports the database schema during normal page loads. After connecting a hosted MySQL database, run setup once:
+
+```text
+https://kwarta-financial-tracker.vercel.app/setup-database?token=YOUR_SETUP_TOKEN
+```
+
+Use the same value you added as `SETUP_TOKEN` in Vercel. This creates missing tables, applies safe compatibility repairs, and adds performance indexes. Run it again only after deploying schema changes.
+
+For local development with PHP installed, you can also run:
+
+```bash
+php database/migrate.php
+```
+
+Local development still auto-applies the schema by default. To disable that behavior locally, set:
+
+```env
+KWARTA_AUTO_SCHEMA=0
+```
 
 ### Production Database Health Check
 
@@ -105,10 +148,11 @@ The app is ready for registration/login when it shows:
 ```text
 Connection: success
 Users table: found
+Schema migration: 2026_06_12_performance_indexes
 Status: ready
 ```
 
-If it says variables are missing, add them in Vercel. If it says the `users` table is missing, import [../database/kwarta.sql](../database/kwarta.sql) into the hosted MySQL database.
+If it says variables are missing, add them in Vercel. If it says the `users` table is missing, import [../database/kwarta.sql](../database/kwarta.sql) into the hosted MySQL database or run the setup URL above.
 
 ### Vercel 404: DEPLOYMENT_NOT_FOUND
 

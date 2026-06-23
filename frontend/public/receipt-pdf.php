@@ -10,6 +10,7 @@ $selectedMonth = $_GET['month'] ?? current_month();
 if (!preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
     $selectedMonth = current_month();
 }
+[$monthStart, $monthEnd] = month_range($selectedMonth);
 
 $stmt = $pdo->prepare('
     INSERT INTO monthly_receipt_logs (user_id, selected_month)
@@ -26,11 +27,12 @@ $stmt = $pdo->prepare('
     FROM transactions t
     JOIN categories c ON c.id = t.category_id
     WHERE t.user_id = :user_id
-      AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :month
+      AND t.transaction_date >= :month_start
+      AND t.transaction_date < :month_end
       AND t.type = "expense"
     ORDER BY t.transaction_date ASC, t.id ASC
 ');
-$stmt->execute(['user_id' => $userId, 'month' => $selectedMonth]);
+$stmt->execute(['user_id' => $userId, 'month_start' => $monthStart, 'month_end' => $monthEnd]);
 $expenseRows = $stmt->fetchAll();
 
 $stmt = $pdo->prepare('
@@ -40,9 +42,10 @@ $stmt = $pdo->prepare('
         COUNT(CASE WHEN t.type = "expense" THEN 1 END) AS expense_count
     FROM transactions t
     WHERE t.user_id = :user_id
-      AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :month
+      AND t.transaction_date >= :month_start
+      AND t.transaction_date < :month_end
 ');
-$stmt->execute(['user_id' => $userId, 'month' => $selectedMonth]);
+$stmt->execute(['user_id' => $userId, 'month_start' => $monthStart, 'month_end' => $monthEnd]);
 $summary = $stmt->fetch();
 
 $totalIncome = (float) $summary['income'];
@@ -55,13 +58,14 @@ $stmt = $pdo->prepare('
     FROM transactions t
     JOIN categories c ON c.id = t.category_id
     WHERE t.user_id = :user_id
-      AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :month
+      AND t.transaction_date >= :month_start
+      AND t.transaction_date < :month_end
       AND t.type = "expense"
     GROUP BY c.id, c.name
     ORDER BY total DESC
     LIMIT 1
 ');
-$stmt->execute(['user_id' => $userId, 'month' => $selectedMonth]);
+$stmt->execute(['user_id' => $userId, 'month_start' => $monthStart, 'month_end' => $monthEnd]);
 $topCategory = $stmt->fetch();
 $highestCategory = $topCategory ? $topCategory['name'] . ' (' . peso((float) $topCategory['total']) . ')' : 'No expenses yet';
 
@@ -70,11 +74,12 @@ $stmt = $pdo->prepare('
     FROM transactions t
     JOIN categories c ON c.id = t.category_id
     WHERE t.user_id = :user_id
-      AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :month
+      AND t.transaction_date >= :month_start
+      AND t.transaction_date < :month_end
       AND t.type = "expense"
       AND LOWER(c.name) = "savings"
 ');
-$stmt->execute(['user_id' => $userId, 'month' => $selectedMonth]);
+$stmt->execute(['user_id' => $userId, 'month_start' => $monthStart, 'month_end' => $monthEnd]);
 $totalSavings = (float) $stmt->fetchColumn();
 
 function receipt_pdf_escape(string $text): string

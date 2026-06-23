@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  php-lint:
+    name: PHP Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate composer.json
+        run: composer validate --no-check-publish
+
+      - name: Lint all PHP files
+        run: |
+          set -euo pipefail
+          error=0
+          while IFS= read -r -d '' file; do
+            if ! php -l "$file" > /dev/null; then
+              echo "::error file=$file::PHP syntax error in $file"
+              error=1
+            fi
+          done < <(find . -type f -name '*.php' -not -path './vendor/*' -print0)
+          if [ "$error" -ne 0 ]; then
+            echo "PHP lint failed."
+            exit 1
+          fi
+          echo "All PHP files passed syntax check."
+
+  deploy:
+    name: Deploy to Vercel (production)
+    needs: php-lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # This job only runs when Vercel CLI secrets are configured in the repo.
+      # If they are not set, it no-ops because Vercel's native Git integration
+      # already auto-deploys every push to main (that is the project's CD path).
+      - name: Deploy with Vercel CLI (optional)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ] || [ -z "${VERCEL_ORG_ID:-}" ] || [ -z "${VERCEL_PROJECT_ID:-}" ]; then
+            echo "Vercel CLI secrets not set — skipping CLI deploy."
+            echo "Vercel's GitHub integration handles production deploys on push to main."
+            exit 0
+          fi
+          npm install -g vercel@latest
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+          vercel build --prod --token "$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"

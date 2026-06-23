@@ -29,6 +29,19 @@ function month_label(string $month): string
     return $date ? $date->format('F Y') : $month;
 }
 
+function month_range(string $month): array
+{
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
+    if (!$date) {
+        $date = new DateTimeImmutable('first day of this month');
+    }
+
+    return [
+        $date->format('Y-m-d'),
+        $date->modify('first day of next month')->format('Y-m-d'),
+    ];
+}
+
 function flash(string $key, ?string $message = null): ?string
 {
     if ($message !== null) {
@@ -108,11 +121,6 @@ function mascot_src(string $variant = 'default'): string
     ];
 
     $fileName = $mascots[$variant] ?? $mascots['default'];
-    $publicPath = __DIR__ . '/../../frontend/public/images/' . $fileName;
-
-    if (!is_file($publicPath)) {
-        $fileName = $mascots['default'];
-    }
 
     $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
     $prefix = str_contains($scriptName, '/admin/') ? '../' : '';
@@ -140,11 +148,16 @@ function ensure_wallet(PDO $pdo, int $userId, float $defaultMoney = 0): void
 
 function get_current_money(PDO $pdo, int $userId, float $defaultMoney = 0): float
 {
-    ensure_wallet($pdo, $userId, $defaultMoney);
-
     $stmt = $pdo->prepare('SELECT current_money FROM wallets WHERE user_id = :user_id');
     $stmt->execute(['user_id' => $userId]);
-    return (float) $stmt->fetchColumn();
+    $currentMoney = $stmt->fetchColumn();
+
+    if ($currentMoney !== false) {
+        return (float) $currentMoney;
+    }
+
+    ensure_wallet($pdo, $userId, $defaultMoney);
+    return $defaultMoney;
 }
 
 function update_current_money(PDO $pdo, int $userId, float $amount): void
@@ -274,6 +287,8 @@ function unlock_achievement(PDO $pdo, int $userId, string $achievementKey): void
 function evaluate_achievements(PDO $pdo, int $userId): void
 {
     ensure_game_stats($pdo, $userId);
+    $month = current_month();
+    [$monthStart, $monthEnd] = month_range($month);
 
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM transactions WHERE user_id = :user_id');
     $stmt->execute(['user_id' => $userId]);
@@ -312,9 +327,14 @@ function evaluate_achievements(PDO $pdo, int $userId): void
         FROM transactions
         WHERE user_id = :user_id
           AND type = "income"
-          AND DATE_FORMAT(transaction_date, "%Y-%m") = :month
+          AND transaction_date >= :month_start
+          AND transaction_date < :month_end
     ');
-    $stmt->execute(['user_id' => $userId, 'month' => current_month()]);
+    $stmt->execute([
+        'user_id' => $userId,
+        'month_start' => $monthStart,
+        'month_end' => $monthEnd,
+    ]);
     if ((float) $stmt->fetchColumn() >= 10000) {
         unlock_achievement($pdo, $userId, 'income_10000');
     }
@@ -322,18 +342,26 @@ function evaluate_achievements(PDO $pdo, int $userId): void
     $stmt = $pdo->prepare('
         SELECT COUNT(*)
         FROM budgets b
+        LEFT JOIN (
+            SELECT category_id, SUM(amount) AS spent
+            FROM transactions
+            WHERE user_id = :spent_user_id
+              AND type = "expense"
+              AND transaction_date >= :month_start
+              AND transaction_date < :month_end
+            GROUP BY category_id
+        ) spent ON spent.category_id = b.category_id
         WHERE b.user_id = :user_id
           AND b.month = :month
-          AND (
-              SELECT COALESCE(SUM(t.amount), 0)
-              FROM transactions t
-              WHERE t.user_id = b.user_id
-                AND t.category_id = b.category_id
-                AND t.type = "expense"
-                AND DATE_FORMAT(t.transaction_date, "%Y-%m") = b.month
-          ) <= b.amount
+          AND COALESCE(spent.spent, 0) <= b.amount
     ');
-    $stmt->execute(['user_id' => $userId, 'month' => current_month()]);
+    $stmt->execute([
+        'spent_user_id' => $userId,
+        'month_start' => $monthStart,
+        'month_end' => $monthEnd,
+        'user_id' => $userId,
+        'month' => $month,
+    ]);
     if ((int) $stmt->fetchColumn() >= 1) {
         unlock_achievement($pdo, $userId, 'budget_guardian');
     }
@@ -341,21 +369,32 @@ function evaluate_achievements(PDO $pdo, int $userId): void
     $stmt = $pdo->prepare('
         SELECT COUNT(*)
         FROM budgets b
+        LEFT JOIN (
+            SELECT category_id, SUM(amount) AS spent
+            FROM transactions
+            WHERE user_id = :spent_user_id
+              AND type = "expense"
+              AND transaction_date >= :month_start
+              AND transaction_date < :month_end
+            GROUP BY category_id
+        ) spent ON spent.category_id = b.category_id
         WHERE b.user_id = :user_id
           AND b.month = :month
-          AND (
-              SELECT COALESCE(SUM(t.amount), 0)
-              FROM transactions t
-              WHERE t.user_id = b.user_id
-                AND t.category_id = b.category_id
-                AND t.type = "expense"
-                AND DATE_FORMAT(t.transaction_date, "%Y-%m") = b.month
-          ) > b.amount
+          AND COALESCE(spent.spent, 0) > b.amount
     ');
-    $stmt->execute(['user_id' => $userId, 'month' => current_month()]);
+    $stmt->execute([
+        'spent_user_id' => $userId,
+        'month_start' => $monthStart,
+        'month_end' => $monthEnd,
+        'user_id' => $userId,
+        'month' => $month,
+    ]);
     $overBudgetCount = (int) $stmt->fetchColumn();
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM budgets WHERE user_id = :user_id AND month = :month');
-    $stmt->execute(['user_id' => $userId, 'month' => current_month()]);
+    $stmt->execute([
+        'user_id' => $userId,
+        'month' => $month,
+    ]);
     if ((int) $stmt->fetchColumn() > 0 && $overBudgetCount === 0) {
         unlock_achievement($pdo, $userId, 'no_overspending');
     }
@@ -367,10 +406,12 @@ function evaluate_achievements(PDO $pdo, int $userId): void
     }
 }
 
-function gamification_profile(PDO $pdo, int $userId): array
+function gamification_profile(PDO $pdo, int $userId, bool $refreshProgress = false): array
 {
     ensure_game_stats($pdo, $userId);
-    evaluate_achievements($pdo, $userId);
+    if ($refreshProgress) {
+        evaluate_achievements($pdo, $userId);
+    }
 
     $stmt = $pdo->prepare('SELECT * FROM user_game_stats WHERE user_id = :user_id');
     $stmt->execute(['user_id' => $userId]);
@@ -393,6 +434,7 @@ function gamification_profile(PDO $pdo, int $userId): array
     $today = date('Y-m-d');
     $weekStart = date('Y-m-d', strtotime('monday this week'));
     $month = current_month();
+    [$monthStart, $monthEnd] = month_range($month);
 
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM transactions WHERE user_id = :user_id AND transaction_date = :today');
     $stmt->execute(['user_id' => $userId, 'today' => $today]);
@@ -418,12 +460,18 @@ function gamification_profile(PDO $pdo, int $userId): array
             ON t.user_id = b.user_id
            AND t.category_id = b.category_id
            AND t.type = "expense"
-           AND DATE_FORMAT(t.transaction_date, "%Y-%m") = b.month
+           AND t.transaction_date >= :month_start
+           AND t.transaction_date < :month_end
         WHERE b.user_id = :user_id AND b.month = :month
         GROUP BY b.id, b.amount
         LIMIT 1
     ');
-    $stmt->execute(['user_id' => $userId, 'month' => $month]);
+    $stmt->execute([
+        'month_start' => $monthStart,
+        'month_end' => $monthEnd,
+        'user_id' => $userId,
+        'month' => $month,
+    ]);
     $foodBudget = $stmt->fetch();
     $foodSafe = $foodBudget ? ((float) $foodBudget['spent'] <= (float) $foodBudget['amount'] ? 1 : 0) : 0;
 
@@ -445,7 +493,7 @@ function gamification_profile(PDO $pdo, int $userId): array
             default => date('Y-m-d'),
         };
 
-        if ($complete) {
+        if ($complete && $refreshProgress) {
             $stmt = $pdo->prepare('
                 INSERT IGNORE INTO user_challenge_completions (user_id, challenge_id, period_key)
                 VALUES (:user_id, :challenge_id, :period_key)

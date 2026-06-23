@@ -5,6 +5,8 @@ declare(strict_types=1);
 $pdo = null;
 $databaseConnectionError = null;
 
+const KWARTA_SCHEMA_VERSION = '2026_06_12_performance_indexes';
+
 function kwarta_env(array $keys, ?string $default = null): ?string
 {
     foreach ($keys as $key) {
@@ -109,6 +111,54 @@ function kwarta_add_column_if_missing(PDO $pdo, string $table, string $column, s
             error_log("[Kwarta schema repair {$table}.{$column}] " . $error->getMessage());
         }
     }
+}
+
+function kwarta_index_exists(PDO $pdo, string $table, string $index): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = :table_name
+          AND INDEX_NAME = :index_name
+    ");
+    $stmt->execute([
+        'table_name' => $table,
+        'index_name' => $index,
+    ]);
+
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function kwarta_add_index_if_missing(PDO $pdo, string $table, string $index, string $definition): void
+{
+    if (!kwarta_table_exists($pdo, $table) || kwarta_index_exists($pdo, $table, $index)) {
+        return;
+    }
+
+    try {
+        $pdo->exec("ALTER TABLE {$table} ADD INDEX {$index} {$definition}");
+    } catch (Throwable $error) {
+        error_log("[Kwarta index {$table}.{$index}] " . $error->getMessage());
+    }
+}
+
+function kwarta_create_schema_migrations_table(PDO $pdo): void
+{
+    $pdo->exec("CREATE TABLE IF NOT EXISTS schema_migrations (
+        version VARCHAR(80) PRIMARY KEY,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB");
+}
+
+function kwarta_schema_migration_exists(PDO $pdo, string $version): bool
+{
+    kwarta_create_schema_migrations_table($pdo);
+
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM schema_migrations WHERE version = :version');
+    $stmt->execute(['version' => $version]);
+
+    return (int) $stmt->fetchColumn() > 0;
 }
 
 function kwarta_apply_schema_file(PDO $pdo): void
@@ -300,6 +350,10 @@ function kwarta_apply_inline_schema(PDO $pdo): void
             INDEX idx_password_resets_token (token),
             INDEX idx_password_resets_email (email)
         ) ENGINE=InnoDB",
+        "CREATE TABLE IF NOT EXISTS schema_migrations (
+            version VARCHAR(80) PRIMARY KEY,
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB",
     ];
 
     foreach ($statements as $statement) {
@@ -414,16 +468,52 @@ function kwarta_repair_savings_tables(PDO $pdo): void
     kwarta_add_column_if_missing($pdo, 'savings_goal_histories', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 }
 
+function kwarta_add_performance_indexes(PDO $pdo): void
+{
+    kwarta_add_index_if_missing($pdo, 'transactions', 'idx_transactions_user_type_date', '(user_id, type, transaction_date)');
+    kwarta_add_index_if_missing($pdo, 'transactions', 'idx_transactions_user_category_type_date', '(user_id, category_id, type, transaction_date)');
+    kwarta_add_index_if_missing($pdo, 'budgets', 'idx_budgets_user_month', '(user_id, month)');
+    kwarta_add_index_if_missing($pdo, 'savings_goals', 'idx_savings_user_target', '(user_id, target_date)');
+    kwarta_add_index_if_missing($pdo, 'savings_goals', 'idx_savings_user_created', '(user_id, created_at)');
+    kwarta_add_index_if_missing($pdo, 'wallets', 'idx_wallets_updated', '(updated_at)');
+}
+
+function kwarta_run_migrations(PDO $pdo, bool $force = false): array
+{
+    kwarta_create_schema_migrations_table($pdo);
+
+    if (!$force && kwarta_schema_migration_exists($pdo, KWARTA_SCHEMA_VERSION)) {
+        return [
+            'applied' => false,
+            'version' => KWARTA_SCHEMA_VERSION,
+            'message' => 'Database schema is already up to date.',
+        ];
+    }
+
+    kwarta_apply_inline_schema($pdo);
+    kwarta_apply_schema_file($pdo);
+    kwarta_repair_users_table($pdo);
+    kwarta_repair_savings_tables($pdo);
+    kwarta_add_performance_indexes($pdo);
+
+    $stmt = $pdo->prepare('
+        INSERT INTO schema_migrations (version)
+        VALUES (:version)
+        ON DUPLICATE KEY UPDATE applied_at = CURRENT_TIMESTAMP
+    ');
+    $stmt->execute(['version' => KWARTA_SCHEMA_VERSION]);
+
+    return [
+        'applied' => true,
+        'version' => KWARTA_SCHEMA_VERSION,
+        'message' => 'Database schema migration completed.',
+    ];
+}
+
 function kwarta_ensure_database_schema(PDO $pdo): void
 {
     try {
-        kwarta_apply_inline_schema($pdo);
-        kwarta_apply_schema_file($pdo);
-        kwarta_repair_users_table($pdo);
-        kwarta_repair_savings_tables($pdo);
-        kwarta_apply_schema_file($pdo);
-        kwarta_apply_inline_schema($pdo);
-        kwarta_repair_savings_tables($pdo);
+        kwarta_run_migrations($pdo);
     } catch (Throwable $error) {
         error_log('[Kwarta schema repair] ' . $error->getMessage());
     }
@@ -470,7 +560,11 @@ if ($isProduction && !$productionDbHost) {
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]
         );
-        kwarta_ensure_database_schema($pdo);
+
+        $shouldAutoSchema = !$isProduction && kwarta_env(['KWARTA_AUTO_SCHEMA'], '1') !== '0';
+        if ($shouldAutoSchema) {
+            kwarta_ensure_database_schema($pdo);
+        }
     } catch (PDOException $e) {
         kwarta_database_unavailable(
             'Kwarta is online, but it cannot connect to the production database yet. Please verify DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD in Vercel.',
