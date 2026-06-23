@@ -73,13 +73,23 @@ function savings_priority_for_goal(array $goal, DateTimeImmutable $currentMonth)
     $isBought = (int) ($goal['is_bought'] ?? 0) === 1;
     $isCompleted = $target > 0 && $saved >= $target;
 
-    if ($isCompleted || $isBought) {
+    if ($isBought) {
         return [
             'key' => 'completed',
-            'label' => 'Completed',
-            'note' => 'Goal reached',
-            'rank' => 4,
+            'label' => 'Bought',
+            'note' => 'Already purchased',
+            'rank' => 5,
             'timestamp' => PHP_INT_MAX,
+        ];
+    }
+
+    if ($isCompleted) {
+        return [
+            'key' => 'ready',
+            'label' => 'Ready to Buy',
+            'note' => 'Saved enough — mark as bought',
+            'rank' => 4,
+            'timestamp' => PHP_INT_MAX - 2,
         ];
     }
 
@@ -402,7 +412,10 @@ foreach ($goals as $index => $goal) {
     $goals[$index]['priority'] = savings_priority_for_goal($goal, $currentMonth);
 }
 
-usort($goals, static function (array $a, array $b): int {
+$activeGoals = array_values(array_filter($goals, static fn ($goal) => (int) ($goal['is_bought'] ?? 0) !== 1));
+$boughtGoals = array_values(array_filter($goals, static fn ($goal) => (int) ($goal['is_bought'] ?? 0) === 1));
+
+usort($activeGoals, static function (array $a, array $b): int {
     $rankCompare = ($a['priority']['rank'] ?? 99) <=> ($b['priority']['rank'] ?? 99);
     if ($rankCompare !== 0) {
         return $rankCompare;
@@ -416,12 +429,21 @@ usort($goals, static function (array $a, array $b): int {
     return strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
 });
 
-$totalBudgetNeed = array_reduce($goals, static fn ($sum, $goal) => $sum + (float) $goal['target_amount'], 0.0);
-$currentBudget = array_reduce($goals, static fn ($sum, $goal) => $sum + (float) $goal['saved_amount'], 0.0);
+usort($boughtGoals, static function (array $a, array $b): int {
+    $aTime = !empty($a['bought_at']) ? strtotime((string) $a['bought_at']) : 0;
+    $bTime = !empty($b['bought_at']) ? strtotime((string) $b['bought_at']) : 0;
+
+    return $bTime <=> $aTime;
+});
+
+$totalBudgetNeed = array_reduce($activeGoals, static fn ($sum, $goal) => $sum + (float) $goal['target_amount'], 0.0);
+$currentBudget = array_reduce($activeGoals, static fn ($sum, $goal) => $sum + (float) $goal['saved_amount'], 0.0);
 $remainingBudget = max(0.0, $totalBudgetNeed - $currentBudget);
 $cartProgress = $totalBudgetNeed > 0 ? min(100, (int) round(($currentBudget / $totalBudgetNeed) * 100)) : 0;
-$dueThisMonthCount = count(array_filter($goals, static fn ($goal) => ($goal['priority']['key'] ?? '') === 'due-this-month'));
-$overdueCount = count(array_filter($goals, static fn ($goal) => ($goal['priority']['key'] ?? '') === 'overdue'));
+$dueThisMonthCount = count(array_filter($activeGoals, static fn ($goal) => ($goal['priority']['key'] ?? '') === 'due-this-month'));
+$overdueCount = count(array_filter($activeGoals, static fn ($goal) => ($goal['priority']['key'] ?? '') === 'overdue'));
+$readyCount = count(array_filter($activeGoals, static fn ($goal) => ($goal['priority']['key'] ?? '') === 'ready'));
+$boughtCount = count($boughtGoals);
 
 $historiesByGoal = [];
 if ($goals) {
@@ -438,6 +460,181 @@ if ($goals) {
         $historiesByGoal[(int) $history['savings_goal_id']][] = $history;
     }
 }
+
+$render_goal_modal = static function (array $goal, array $histories): void {
+    $goalId = (int) $goal['id'];
+    $target = (float) $goal['target_amount'];
+    $saved = (float) $goal['saved_amount'];
+    $description = trim($goal['description'] ?? '');
+    $isBought = (int) ($goal['is_bought'] ?? 0) === 1;
+    $percentage = $target > 0 ? min(100, round(($saved / $target) * 100)) : 0;
+    $remaining = max(0, $target - $saved);
+    $priority = $goal['priority'];
+    $priorityKey = $priority['key'];
+    $priorityLabel = $priority['label'];
+    $priorityNote = $priority['note'];
+    ?>
+    <div class="modal fade" id="goalModal<?= $goalId ?>" tabindex="-1" aria-labelledby="goalModalLabel<?= $goalId ?>" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content pixel-modal">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h4 fw-bold" id="goalModalLabel<?= $goalId ?>"><?= e($goal['name']) ?></h2>
+                        <div class="text-muted-small">Cart item details, target month, and activity history</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-4">
+                        <div class="col-lg-5">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <?= mascot_img('savings', 'mascot-section-img', 'Kwarta savings mascot') ?>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex flex-wrap gap-2 mb-2">
+                                        <span class="savings-status-badge <?= e($priorityKey) ?>"><?= e($priorityLabel) ?></span>
+                                        <span class="savings-priority-note"><?= e($priorityNote) ?></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between text-muted-small mb-1">
+                                        <span><?= (int) $percentage ?>% saved</span>
+                                        <span><?= e(peso($remaining)) ?> remaining</span>
+                                    </div>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-success" style="width: <?= (int) $percentage ?>%"></div>
+                                    </div>
+                                    <?php if ($isBought): ?>
+                                        <span class="savings-status-badge bought mt-2">Already Bought<?= $goal['bought_at'] ? ' on ' . e(date('M j, Y', strtotime($goal['bought_at']))) : '' ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <form method="post" class="mb-4">
+                                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                                <input type="hidden" name="action" value="update">
+                                <input type="hidden" name="id" value="<?= $goalId ?>">
+                                <div class="mb-3">
+                                    <label class="form-label">Item Name</label>
+                                    <input class="form-control" name="name" value="<?= e($goal['name']) ?>" maxlength="120" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Item Description</label>
+                                    <textarea class="form-control" name="description" rows="3" maxlength="255" placeholder="What is this item for?"><?= e($description) ?></textarea>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Item Price</label>
+                                        <input class="form-control" type="number" step="0.01" min="0.01" name="target_amount" value="<?= e((string) $goal['target_amount']) ?>" required>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Target Month to Avail</label>
+                                        <input class="form-control" type="month" name="target_month" value="<?= e($goal['target_date'] ? date('Y-m', strtotime($goal['target_date'])) : '') ?>" required>
+                                        <div class="form-text">Choose the month when you plan to buy or avail this item.</div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-success w-100 mt-3" type="submit">Update Item</button>
+                            </form>
+
+                            <form method="post" class="mb-4" onsubmit="return confirm('<?= $isBought ? 'Move this item back to your savings cart?' : 'Are you sure you already bought this item?' ?>');">
+                                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                                <input type="hidden" name="action" value="toggle_bought">
+                                <input type="hidden" name="id" value="<?= $goalId ?>">
+                                <button class="btn <?= $isBought ? 'btn-outline-secondary' : 'btn-warning' ?> w-100" type="submit">
+                                    <i class="bi <?= $isBought ? 'bi-arrow-counterclockwise' : 'bi-bag-check' ?>"></i>
+                                    <?= $isBought ? 'Move Back to Savings Cart' : 'Mark as Bought' ?>
+                                </button>
+                            </form>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <form method="post" class="savings-adjust-box">
+                                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                                        <input type="hidden" name="action" value="increase">
+                                        <input type="hidden" name="id" value="<?= $goalId ?>">
+                                        <label class="form-label">Add Savings</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">PHP</span>
+                                            <input class="form-control" type="number" step="0.01" min="0.01" name="amount_change" placeholder="500" required>
+                                        </div>
+                                        <button class="btn btn-outline-success w-100 mt-2" type="submit">Add Savings</button>
+                                    </form>
+                                </div>
+                                <div class="col-md-6">
+                                    <form method="post" class="savings-adjust-box">
+                                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                                        <input type="hidden" name="action" value="decrease">
+                                        <input type="hidden" name="id" value="<?= $goalId ?>">
+                                        <label class="form-label">Reduce Savings</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">PHP</span>
+                                            <input class="form-control" type="number" step="0.01" min="0.01" max="<?= e((string) $goal['saved_amount']) ?>" name="amount_change" placeholder="200" required>
+                                        </div>
+                                        <button class="btn btn-outline-danger w-100 mt-2" type="submit">Reduce Savings</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-7">
+                            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                                <h3 class="h5 fw-bold mb-0">Cart Activity</h3>
+                                <form method="post">
+                                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="<?= $goalId ?>">
+                                    <button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('Remove this cart item and its history?');">
+                                        <i class="bi bi-trash"></i> Remove Item
+                                    </button>
+                                </form>
+                            </div>
+
+                            <?php if (!$histories): ?>
+                                <div class="empty-state">
+                                    <?= mascot_img('guide', 'mascot-empty-img', 'Kwarta guide mascot') ?>
+                                    <div>
+                                        <strong>No activity yet.</strong>
+                                        <div class="text-muted-small">Add or reduce savings to start the history log.</div>
+                                    </div>
+                                </div>
+                            <?php else: ?>
+                                <div class="savings-history-list">
+                                    <?php foreach ($histories as $history): ?>
+                                        <div class="savings-history-item">
+                                            <div class="d-flex justify-content-between gap-3">
+                                                <div>
+                                                    <strong><?= e(savings_action_label($history['action_type'])) ?></strong>
+                                                    <div class="text-muted-small"><?= e(savings_history_time($history['created_at'])) ?></div>
+                                                </div>
+                                                <form method="post">
+                                                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                                                    <input type="hidden" name="action" value="delete_history">
+                                                    <input type="hidden" name="goal_id" value="<?= $goalId ?>">
+                                                    <input type="hidden" name="history_id" value="<?= (int) $history['id'] ?>">
+                                                    <button class="btn btn-sm btn-outline-danger savings-history-delete" type="submit" onclick="return confirm('Delete this history entry? This will not change the saved amount.');">
+                                                        <i class="bi bi-trash"></i>
+                                                        Delete
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            <div class="text-muted-small mt-1"><?= e($history['notes'] ?? '') ?></div>
+                                            <div class="savings-history-meta mt-2">
+                                                <?php if ($history['amount_changed'] !== null): ?>
+                                                    <span>Changed: <?= e(peso(abs((float) $history['amount_changed']))) ?></span>
+                                                <?php endif; ?>
+                                                <?php if ($history['previous_amount'] !== null && $history['new_amount'] !== null): ?>
+                                                    <span><?= e(peso((float) $history['previous_amount'])) ?> to <?= e(peso((float) $history['new_amount'])) ?></span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php
+};
 
 require_once __DIR__ . '/../../backend/includes/header.php';
 ?>
@@ -461,7 +658,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
             <div class="col-lg-4">
                 <div class="text-muted-small text-uppercase fw-bold">Total Budget Need</div>
                 <div class="h3 fw-bold mb-0"><?= e(peso($totalBudgetNeed)) ?></div>
-                <div class="text-muted-small">Full price of all cart items.</div>
+                <div class="text-muted-small">Full price of active cart items.</div>
             </div>
             <div class="col-lg-4">
                 <div class="text-muted-small text-uppercase fw-bold">Current Budget</div>
@@ -484,6 +681,12 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     <span class="text-muted-small"><?= (int) $dueThisMonthCount ?> due this month</span>
                     <?php if ($overdueCount > 0): ?>
                         <span class="savings-status-badge overdue"><?= (int) $overdueCount ?> overdue</span>
+                    <?php endif; ?>
+                    <?php if ($readyCount > 0): ?>
+                        <span class="savings-status-badge ready"><?= (int) $readyCount ?> ready to buy</span>
+                    <?php endif; ?>
+                    <?php if ($boughtCount > 0): ?>
+                        <span class="savings-status-badge bought"><i class="bi bi-bag-check"></i> <?= (int) $boughtCount ?> bought</span>
                     <?php endif; ?>
                 </div>
             </div>
@@ -531,16 +734,20 @@ require_once __DIR__ . '/../../backend/includes/header.php';
     </div>
 
     <div class="col-lg-8">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="h5 fw-bold mb-0"><i class="bi bi-cart3"></i> Active Savings Items</h2>
+            <span class="text-muted-small"><?= (int) count($activeGoals) ?> saving<?= count($activeGoals) === 1 ? '' : 's' ?> in progress</span>
+        </div>
         <div class="row g-3">
-            <?php if (!$goals): ?>
+            <?php if (!$activeGoals): ?>
                 <div class="col-12">
                     <div class="card content-card">
                         <div class="card-body">
                             <div class="empty-state justify-content-center">
                                 <?= mascot_img('savings', 'mascot-empty-img', 'Kwarta savings mascot') ?>
                                 <div>
-                                    <strong>No cart items yet.</strong>
-                                    <div class="text-muted-small">Add an item, choose when you want to avail it, and start saving toward it.</div>
+                                    <strong><?= $boughtGoals ? 'No active items right now.' : 'No cart items yet.' ?></strong>
+                                    <div class="text-muted-small"><?= $boughtGoals ? 'Everything is bought. Add a new item to keep saving.' : 'Add an item, choose when you want to avail it, and start saving toward it.' ?></div>
                                 </div>
                             </div>
                         </div>
@@ -548,7 +755,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <?php foreach ($goals as $goal): ?>
+            <?php foreach ($activeGoals as $goal): ?>
                 <?php
                 $goalId = (int) $goal['id'];
                 $target = (float) $goal['target_amount'];
@@ -601,168 +808,68 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     </button>
                 </div>
 
-                <div class="modal fade" id="goalModal<?= $goalId ?>" tabindex="-1" aria-labelledby="goalModalLabel<?= $goalId ?>" aria-hidden="true">
-                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-                        <div class="modal-content pixel-modal">
-                            <div class="modal-header">
-                                <div>
-                                    <h2 class="modal-title h4 fw-bold" id="goalModalLabel<?= $goalId ?>"><?= e($goal['name']) ?></h2>
-                                    <div class="text-muted-small">Cart item details, target month, and activity history</div>
-                                </div>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="row g-4">
-                                    <div class="col-lg-5">
-                                        <div class="d-flex align-items-center gap-3 mb-3">
-                                            <?= mascot_img('savings', 'mascot-section-img', 'Kwarta savings mascot') ?>
-                                            <div class="flex-grow-1">
-                                                <div class="d-flex flex-wrap gap-2 mb-2">
-                                                    <span class="savings-status-badge <?= e($priorityKey) ?>"><?= e($priorityLabel) ?></span>
-                                                    <span class="savings-priority-note"><?= e($priorityNote) ?></span>
-                                                </div>
-                                                <div class="d-flex justify-content-between text-muted-small mb-1">
-                                                    <span><?= (int) $percentage ?>% saved</span>
-                                                    <span><?= e(peso($remaining)) ?> remaining</span>
-                                                </div>
-                                                <div class="progress">
-                                                    <div class="progress-bar bg-success" style="width: <?= (int) $percentage ?>%"></div>
-                                                </div>
-                                                <?php if ($isBought): ?>
-                                                    <span class="savings-status-badge bought mt-2">Already Bought<?= $goal['bought_at'] ? ' on ' . e(date('M j, Y', strtotime($goal['bought_at']))) : '' ?></span>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-
-                                        <form method="post" class="mb-4">
-                                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                                            <input type="hidden" name="action" value="update">
-                                            <input type="hidden" name="id" value="<?= $goalId ?>">
-                                            <div class="mb-3">
-                                                <label class="form-label">Item Name</label>
-                                                <input class="form-control" name="name" value="<?= e($goal['name']) ?>" maxlength="120" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Item Description</label>
-                                                <textarea class="form-control" name="description" rows="3" maxlength="255" placeholder="What is this item for?"><?= e($description) ?></textarea>
-                                            </div>
-                                            <div class="row g-3">
-                                                <div class="col-12">
-                                                    <label class="form-label">Item Price</label>
-                                                    <input class="form-control" type="number" step="0.01" min="0.01" name="target_amount" value="<?= e((string) $goal['target_amount']) ?>" required>
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label">Target Month to Avail</label>
-                                                    <input class="form-control" type="month" name="target_month" value="<?= e($goal['target_date'] ? date('Y-m', strtotime($goal['target_date'])) : '') ?>" required>
-                                                    <div class="form-text">Choose the month when you plan to buy or avail this item.</div>
-                                                </div>
-                                            </div>
-                                            <button class="btn btn-success w-100 mt-3" type="submit">Update Item</button>
-                                        </form>
-
-                                        <form method="post" class="mb-4">
-                                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                                            <input type="hidden" name="action" value="toggle_bought">
-                                            <input type="hidden" name="id" value="<?= $goalId ?>">
-                                            <button class="btn <?= $isBought ? 'btn-outline-secondary' : 'btn-warning' ?> w-100" type="submit">
-                                                <i class="bi <?= $isBought ? 'bi-arrow-counterclockwise' : 'bi-bag-check' ?>"></i>
-                                                <?= $isBought ? 'Undo Already Bought' : 'Mark as Already Bought' ?>
-                                            </button>
-                                        </form>
-
-                                        <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <form method="post" class="savings-adjust-box">
-                                                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                                                    <input type="hidden" name="action" value="increase">
-                                                    <input type="hidden" name="id" value="<?= $goalId ?>">
-                                                    <label class="form-label">Add Savings</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text">PHP</span>
-                                                        <input class="form-control" type="number" step="0.01" min="0.01" name="amount_change" placeholder="500" required>
-                                                    </div>
-                                                    <button class="btn btn-outline-success w-100 mt-2" type="submit">Add Savings</button>
-                                                </form>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <form method="post" class="savings-adjust-box">
-                                                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                                                    <input type="hidden" name="action" value="decrease">
-                                                    <input type="hidden" name="id" value="<?= $goalId ?>">
-                                                    <label class="form-label">Reduce Savings</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text">PHP</span>
-                                                        <input class="form-control" type="number" step="0.01" min="0.01" max="<?= e((string) $goal['saved_amount']) ?>" name="amount_change" placeholder="200" required>
-                                                    </div>
-                                                    <button class="btn btn-outline-danger w-100 mt-2" type="submit">Reduce Savings</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-lg-7">
-                                        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
-                                            <h3 class="h5 fw-bold mb-0">Cart Activity</h3>
-                                            <form method="post">
-                                                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                                                <input type="hidden" name="action" value="delete">
-                                                <input type="hidden" name="id" value="<?= $goalId ?>">
-                                                <button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('Remove this cart item and its history?');">
-                                                    <i class="bi bi-trash"></i> Remove Item
-                                                </button>
-                                            </form>
-                                        </div>
-
-                                        <?php if (!$histories): ?>
-                                            <div class="empty-state">
-                                                <?= mascot_img('guide', 'mascot-empty-img', 'Kwarta guide mascot') ?>
-                                                <div>
-                                                    <strong>No activity yet.</strong>
-                                                    <div class="text-muted-small">Add or reduce savings to start the history log.</div>
-                                                </div>
-                                            </div>
-                                        <?php else: ?>
-                                            <div class="savings-history-list">
-                                                <?php foreach ($histories as $history): ?>
-                                                    <div class="savings-history-item">
-                                                        <div class="d-flex justify-content-between gap-3">
-                                                            <div>
-                                                                <strong><?= e(savings_action_label($history['action_type'])) ?></strong>
-                                                                <div class="text-muted-small"><?= e(savings_history_time($history['created_at'])) ?></div>
-                                                            </div>
-                                                            <form method="post">
-                                                                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                                                                <input type="hidden" name="action" value="delete_history">
-                                                                <input type="hidden" name="goal_id" value="<?= $goalId ?>">
-                                                                <input type="hidden" name="history_id" value="<?= (int) $history['id'] ?>">
-                                                                <button class="btn btn-sm btn-outline-danger savings-history-delete" type="submit" onclick="return confirm('Delete this history entry? This will not change the saved amount.');">
-                                                                    <i class="bi bi-trash"></i>
-                                                                    Delete
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                        <div class="text-muted-small mt-1"><?= e($history['notes'] ?? '') ?></div>
-                                                        <div class="savings-history-meta mt-2">
-                                                            <?php if ($history['amount_changed'] !== null): ?>
-                                                                <span>Changed: <?= e(peso(abs((float) $history['amount_changed']))) ?></span>
-                                                            <?php endif; ?>
-                                                            <?php if ($history['previous_amount'] !== null && $history['new_amount'] !== null): ?>
-                                                                <span><?= e(peso((float) $history['previous_amount'])) ?> to <?= e(peso((float) $history['new_amount'])) ?></span>
-                                                            <?php endif; ?>
-                                                        </div>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <?php $render_goal_modal($goal, $histories); ?>
             <?php endforeach; ?>
         </div>
     </div>
 </div>
+
+<?php if ($goals): ?>
+<section class="savings-bought-section">
+    <div class="card content-card">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <h2 class="h5 fw-bold mb-0"><span class="pixel-icon pixel-money bag me-1"><i class="bi bi-bag-check"></i></span> Bought Items</h2>
+                <span class="text-muted-small"><?= (int) $boughtCount ?> item<?= $boughtCount === 1 ? '' : 's' ?> already bought</span>
+            </div>
+
+            <?php if (!$boughtGoals): ?>
+                <div class="empty-state">
+                    <?= mascot_img('savings', 'mascot-empty-img', 'Kwarta savings mascot') ?>
+                    <div>
+                        <strong>No bought items yet.</strong>
+                        <div class="text-muted-small">When you reach a goal, open the item and tap <em>Mark as Bought</em>. It will move here so you can keep a record of what you have purchased.</div>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="row g-3">
+                    <?php foreach ($boughtGoals as $goal): ?>
+                        <?php
+                        $goalId = (int) $goal['id'];
+                        $target = (float) $goal['target_amount'];
+                        $saved = (float) $goal['saved_amount'];
+                        $description = trim($goal['description'] ?? '');
+                        $histories = $historiesByGoal[$goalId] ?? [];
+                        $boughtAt = !empty($goal['bought_at']) ? strtotime((string) $goal['bought_at']) : null;
+                        ?>
+                        <div class="col-md-6 col-xl-4" id="goal-<?= $goalId ?>">
+                            <button class="card content-card savings-goal-card savings-bought-card h-100 text-start w-100" type="button" data-bs-toggle="modal" data-bs-target="#goalModal<?= $goalId ?>">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                        <h3 class="h6 fw-bold mb-0"><?= e($goal['name']) ?></h3>
+                                        <span class="savings-status-badge bought"><i class="bi bi-bag-check"></i> Bought</span>
+                                    </div>
+                                    <?php if ($description !== ''): ?>
+                                        <p class="savings-description-preview"><?= e($description) ?></p>
+                                    <?php endif; ?>
+                                    <div class="savings-bought-grid">
+                                        <div><span>Price</span><strong><?= e(peso($target)) ?></strong></div>
+                                        <div><span>Saved</span><strong><?= e(peso($saved)) ?></strong></div>
+                                        <div><span>Target</span><strong><?= e($goal['target_date'] ? date('M Y', strtotime($goal['target_date'])) : '—') ?></strong></div>
+                                        <div><span>Bought On</span><strong><?= $boughtAt ? e(date('M j, Y, g:i A', $boughtAt)) : 'Recorded' ?></strong></div>
+                                    </div>
+                                    <div class="text-muted-small mt-2">Tap to view history or move it back to your cart.</div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <?php $render_goal_modal($goal, $histories); ?>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/../../backend/includes/footer.php'; ?>
