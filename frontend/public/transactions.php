@@ -100,8 +100,15 @@ require_once __DIR__ . '/../../backend/includes/header.php';
 
 <div class="card content-card">
     <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+            <div class="table-search-box">
+                <i class="bi bi-search search-icon"></i>
+                <input type="search" id="txSearchInput" class="form-control form-control-sm" placeholder="Quick search records...">
+            </div>
+            <span class="text-muted-small fw-bold"><?= count($transactions) ?> total records</span>
+        </div>
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle" id="transactionsTable">
                 <thead>
                     <tr>
                         <th>Date</th>
@@ -142,5 +149,13 @@ require_once __DIR__ . '/../../backend/includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof initTableSearch === 'function') {
+        initTableSearch('txSearchInput', 'transactionsTable');
+    }
+});
+</script>
 
 <?php require_once __DIR__ . '/../../backend/includes/footer.php'; ?>

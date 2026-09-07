@@ -484,14 +484,25 @@ function transactionForm(req, res, user, item = {}, errors = []) {
 }
 
 function transactions(req, res, data, user) {
-  const rows = userTransactions(data, user.id).map((item) => `<tr>
-    <td>${escapeHtml(item.date)}</td><td>${escapeHtml(categoryName(item.categoryId))}</td><td>${escapeHtml(item.type)}</td><td>${escapeHtml(item.notes || '')}</td><td class="text-end fw-semibold">${money(item.amount)}</td>
-    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/transaction/edit?id=${item.id}"><i class="bi bi-pencil"></i></a>
-    <form class="d-inline" method="post" action="/transaction/delete"><input type="hidden" name="id" value="${item.id}"><button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button></form></td>
+  const userTx = userTransactions(data, user.id);
+  const rows = userTx.map((item) => `<tr>
+    <td>${escapeHtml(item.date)}</td><td>${escapeHtml(categoryName(item.categoryId))}</td><td><span class="badge ${item.type === 'income' ? 'badge-soft-success' : 'badge-soft-danger'}">${escapeHtml(item.type)}</span></td><td>${escapeHtml(item.notes || '')}</td><td class="text-end fw-semibold">${money(item.amount)}</td>
+    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/transaction/edit?id=${item.id}"><i class="bi bi-pencil"></i> Edit</a>
+    <form class="d-inline" method="post" action="/transaction/delete"><input type="hidden" name="id" value="${item.id}"><button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('Delete this transaction?');"><i class="bi bi-trash"></i> Delete</button></form></td>
   </tr>`).join('') || '<tr><td colspan="6" class="text-center text-muted py-4">No transactions yet.</td></tr>';
   sendHtml(res, page(req, user, 'Transactions', `
     <section class="page-header-panel"><div class="page-header-main"><span class="page-header-icon"><span class="pixel-nav-icon nav-icon-coin" aria-hidden="true"></span></span><div class="page-header-copy"><h1 class="page-header-title">Transactions</h1><p class="page-header-subtitle">Manage your income and expense records in one place.</p></div></div><div class="page-header-actions"><a class="btn btn-success" href="/transaction/new"><i class="bi bi-plus-circle"></i> Add Transaction</a></div></section>
-    <div class="card content-card"><div class="card-body"><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Date</th><th>Category</th><th>Type</th><th>Notes</th><th class="text-end">Amount</th><th class="text-end">Actions</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>
+    <div class="card content-card"><div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div class="table-search-box">
+          <i class="bi bi-search search-icon"></i>
+          <input type="search" id="txSearchInput" class="form-control form-control-sm" placeholder="Quick search records...">
+        </div>
+        <span class="text-muted-small fw-bold">${userTx.length} total records</span>
+      </div>
+      <div class="table-responsive"><table class="table align-middle" id="transactionsTable"><thead><tr><th>Date</th><th>Category</th><th>Type</th><th>Notes</th><th class="text-end">Amount</th><th class="text-end">Actions</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div></div>
+    <script>document.addEventListener('DOMContentLoaded', function() { initTableSearch('txSearchInput', 'transactionsTable'); });</script>
   `));
 }
 
@@ -710,7 +721,17 @@ function adminUsers(req, res, data, user) {
   sendHtml(res, page(req, user, 'User Management', `
     <section class="page-header-panel"><div class="page-header-main"><span class="page-header-icon"><span class="pixel-nav-icon nav-icon-avatar" aria-hidden="true"></span></span><div class="page-header-copy"><h1 class="page-header-title">User Management</h1><p class="page-header-subtitle">Activate or deactivate user accounts without accessing private financial records.</p></div></div></section>
     <div class="admin-privacy-note mb-4"><strong>Privacy note:</strong> Admins can see basic account metadata only. Transaction records, budgets, cart items, and receipt details are not shown here.</div>
-    <div class="card content-card"><div class="card-body"><div class="table-responsive"><table class="table align-middle"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Created</th><th>Last Login</th><th>Status</th><th>Role</th><th class="text-end">Action</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>
+    <div class="card content-card"><div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div class="table-search-box">
+          <i class="bi bi-search search-icon"></i>
+          <input type="search" id="userSearchInput" class="form-control form-control-sm" placeholder="Quick search users...">
+        </div>
+        <span class="text-muted-small fw-bold">${data.users.length} total users</span>
+      </div>
+      <div class="table-responsive"><table class="table align-middle" id="adminUsersTable"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Created</th><th>Last Login</th><th>Status</th><th>Role</th><th class="text-end">Action</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div></div>
+    <script>document.addEventListener('DOMContentLoaded', function() { initTableSearch('userSearchInput', 'adminUsersTable'); });</script>
   `));
 }
 

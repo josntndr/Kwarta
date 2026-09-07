@@ -2546,3 +2546,189 @@ a:focus-visible,
         box-shadow: 3px 3px 0 var(--kwarta-line);
     }
 }
+
+/* ==========================================
+   UI/UX Polish: Micro-animations & Visuals
+   ========================================== */
+
+@keyframes mascot-float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-7px); }
+}
+
+@keyframes nav-icon-hop {
+    0%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+    80% { transform: translateY(1px); }
+}
+
+@keyframes badge-glow {
+    0%, 100% { box-shadow: 0 0 4px rgba(252, 209, 22, 0.4); }
+    50% { box-shadow: 0 0 12px rgba(252, 209, 22, 0.85); }
+}
+
+@keyframes pulse-cta {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); box-shadow: 6px 6px 0 var(--shadow), 0 0 12px rgba(46, 139, 87, 0.4); }
+}
+
+@keyframes toast-slide-in {
+    from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Mascot floating animation */
+.mascot-hero-img,
+.mascot-money-img,
+.mascot-section-img,
+.auth-logo,
+.landing-mascot {
+    animation: mascot-float 4.5s ease-in-out infinite;
+}
+
+/* Level pill & badge animations */
+.level-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border: 2px solid var(--border);
+    background: var(--secondary);
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 900;
+    box-shadow: 3px 3px 0 rgba(43, 26, 15, 0.3);
+    animation: badge-glow 3s infinite;
+}
+
+/* Hover lifts for cards */
+.pixel-card,
+.stat-card,
+.content-card,
+.savings-goal-card,
+.achievement-tile,
+.landing-feature-card {
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.stat-card:hover,
+.content-card:hover,
+.landing-feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 8px 8px 0 var(--shadow);
+}
+
+.savings-goal-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 8px 8px 0 var(--shadow);
+    border-color: var(--secondary);
+}
+
+/* Sticky table header & polish */
+.table-responsive {
+    border: 2px solid var(--border);
+    box-shadow: 4px 4px 0 rgba(43, 26, 15, 0.2);
+    background: var(--background);
+}
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--card);
+    border-bottom: 3px solid var(--border);
+    color: var(--text);
+    font-weight: 900;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Search bar polish */
+.table-search-box {
+    position: relative;
+    max-width: 320px;
+}
+
+.table-search-box .form-control {
+    padding-left: 2.3rem;
+    border: 2px solid var(--border);
+    box-shadow: 3px 3px 0 rgba(43, 26, 15, 0.15);
+    background: var(--background);
+}
+
+.table-search-box .search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--kwarta-muted);
+    pointer-events: none;
+}
+
+/* Kwarta Toast Notification system */
+.kwarta-toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 1090;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 380px;
+    pointer-events: none;
+}
+
+.kwarta-toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1.1rem;
+    border: 3px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-weight: 800;
+    font-size: 0.9rem;
+    box-shadow: 6px 6px 0 var(--shadow);
+    animation: toast-slide-in 250ms ease forwards;
+}
+
+.kwarta-toast-success {
+    border-color: var(--success);
+    background: #e8f7ee;
+    color: var(--primary);
+}
+
+.kwarta-toast-info {
+    border-color: var(--accent);
+    background: #e6f0ff;
+    color: #002570;
+}
+
+.kwarta-toast-danger {
+    border-color: var(--danger);
+    background: #fde8e8;
+    color: #8b0000;
+}
+
+/* Sleek custom scrollbars */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background);
+    border: 1px solid var(--border);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--secondary);
+    border: 2px solid var(--border);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--kwarta-mint);
+}
+
