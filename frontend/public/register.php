@@ -50,12 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt = $pdo->prepare('
                 INSERT INTO users (name, email, password_hash, role, status)
-                VALUES (:name, :email, :password_hash, "user", "active")
+                VALUES (:name, :email, :password_hash, :role, :status)
             ');
             $stmt->execute([
                 'name' => $name,
                 'email' => $email,
                 'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'role' => 'user',
+                'status' => 'active',
             ]);
             $newUserId = (int) $pdo->lastInsertId();
             ensure_game_stats($pdo, $newUserId);
