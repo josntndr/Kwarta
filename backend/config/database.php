@@ -19,6 +19,18 @@ function kwarta_env(array $keys, ?string $default = null): ?string
     return $default;
 }
 
+function kwarta_raw_env(array $keys): ?string
+{
+    foreach ($keys as $key) {
+        $value = getenv($key);
+        if ($value !== false && trim((string) $value) !== '') {
+            return trim(trim((string) $value), "\"'");
+        }
+    }
+
+    return null;
+}
+
 function kwarta_clean_env_value(string $key, string $value): string
 {
     $clean = trim($value);
@@ -44,6 +56,63 @@ function kwarta_clean_env_value(string $key, string $value): string
     }
 
     return $clean;
+}
+
+function kwarta_parse_connection_string(string $url): array
+{
+    $parts = parse_url($url);
+
+    if ($parts === false) {
+        return [];
+    }
+
+    $database = null;
+    if (isset($parts['path']) && trim((string) $parts['path'], '/') !== '') {
+        $database = trim((string) $parts['path'], '/');
+    }
+
+    return [
+        'host' => isset($parts['host']) ? (string) $parts['host'] : null,
+        'port' => isset($parts['port']) ? (string) $parts['port'] : null,
+        'database' => $database,
+        'user' => isset($parts['user']) ? rawurldecode((string) $parts['user']) : null,
+        'password' => isset($parts['pass']) ? rawurldecode((string) $parts['pass']) : null,
+        'query' => isset($parts['query']) ? (string) $parts['query'] : null,
+    ];
+}
+
+function kwarta_parse_host_endpoint(?string $value): array
+{
+    if ($value === null) {
+        return [];
+    }
+
+    $clean = trim(trim($value), "\"'");
+    $clean = preg_replace('/^(Value|Host|Database|User|Password|Port|MYSQL[A-Z_]*|DB_[A-Z_]*)\s*:\s*/i', '', $clean) ?? $clean;
+    $clean = trim($clean);
+    if ($clean === '') {
+        return [];
+    }
+
+    if (preg_match('/^[a-z][a-z0-9+.-]*:\/\//i', $clean)) {
+        return kwarta_parse_connection_string($clean);
+    }
+
+    if (preg_match('/^\[([^\]]+)\]:(\d+)$/', $clean, $matches)) {
+        return [
+            'host' => $matches[1],
+            'port' => $matches[2],
+        ];
+    }
+
+    if (preg_match('/^([^:\s]+):(\d+)$/', $clean, $matches)) {
+        return [
+            'host' => $matches[1],
+            'port' => $matches[2],
+        ];
+    }
+
+    return ['host' => $clean];
 }
 
 function kwarta_is_guest_route(): bool
@@ -519,27 +588,38 @@ function kwarta_ensure_database_schema(PDO $pdo): void
     }
 }
 
+$rawDbHost = kwarta_raw_env(['DB_HOST', 'MYSQLHOST']);
 $databaseUrl = kwarta_env(['DATABASE_URL', 'MYSQL_URL', 'JAWSDB_URL', 'CLEARDB_DATABASE_URL']);
+if ($databaseUrl === null && $rawDbHost !== null && preg_match('/^[a-z][a-z0-9+.-]*:\/\//i', $rawDbHost)) {
+    $databaseUrl = $rawDbHost;
+}
+
 $dbHost = kwarta_env(['DB_HOST', 'MYSQLHOST'], '127.0.0.1');
 $dbPort = kwarta_env(['DB_PORT', 'MYSQLPORT'], '3306');
 $dbName = kwarta_env(['DB_NAME', 'MYSQLDATABASE'], 'kwarta');
 $dbUser = kwarta_env(['DB_USER', 'MYSQLUSER'], 'root');
 $dbPass = kwarta_env(['DB_PASSWORD', 'MYSQLPASSWORD', 'DB_PASS'], '');
 $isProduction = getenv('VERCEL') === '1' || kwarta_env(['APP_ENV']) === 'production';
+$hostEndpoint = kwarta_parse_host_endpoint($rawDbHost);
+if (!empty($hostEndpoint['host'])) {
+    $dbHost = (string) $hostEndpoint['host'];
+}
+if (!empty($hostEndpoint['port'])) {
+    $dbPort = (string) $hostEndpoint['port'];
+}
+if ($databaseUrl === null) {
+    $dbUser = !empty($hostEndpoint['user']) ? (string) $hostEndpoint['user'] : $dbUser;
+    $dbPass = array_key_exists('password', $hostEndpoint) && $hostEndpoint['password'] !== null ? (string) $hostEndpoint['password'] : $dbPass;
+    $dbName = !empty($hostEndpoint['database']) ? (string) $hostEndpoint['database'] : $dbName;
+}
 
 if ($databaseUrl !== null) {
-    $parts = parse_url($databaseUrl);
-
-    if ($parts !== false) {
-        $dbHost = isset($parts['host']) ? (string) $parts['host'] : $dbHost;
-        $dbPort = isset($parts['port']) ? (string) $parts['port'] : $dbPort;
-        $dbUser = isset($parts['user']) ? rawurldecode((string) $parts['user']) : $dbUser;
-        $dbPass = isset($parts['pass']) ? rawurldecode((string) $parts['pass']) : $dbPass;
-
-        if (isset($parts['path']) && trim((string) $parts['path'], '/') !== '') {
-            $dbName = trim((string) $parts['path'], '/');
-        }
-    }
+    $parts = kwarta_parse_connection_string($databaseUrl);
+    $dbHost = !empty($parts['host']) ? (string) $parts['host'] : $dbHost;
+    $dbPort = !empty($parts['port']) ? (string) $parts['port'] : $dbPort;
+    $dbUser = !empty($parts['user']) ? (string) $parts['user'] : $dbUser;
+    $dbPass = array_key_exists('password', $parts) && $parts['password'] !== null ? (string) $parts['password'] : $dbPass;
+    $dbName = !empty($parts['database']) ? (string) $parts['database'] : $dbName;
 }
 
 $productionDbHost = kwarta_env(['DB_HOST', 'MYSQLHOST']) !== null || $databaseUrl !== null;
@@ -561,7 +641,7 @@ if ($isProduction && !$productionDbHost) {
             ]
         );
 
-        $shouldAutoSchema = !$isProduction && kwarta_env(['KWARTA_AUTO_SCHEMA'], '1') !== '0';
+        $shouldAutoSchema = kwarta_env(['KWARTA_AUTO_SCHEMA'], '1') !== '0';
         if ($shouldAutoSchema) {
             kwarta_ensure_database_schema($pdo);
         }

@@ -258,6 +258,8 @@ If your database provider gives one connection string instead, add it as `DATABA
 DATABASE_URL=mysql://user:password@host:3306/database_name
 ```
 
+Kwarta also accepts a provider endpoint pasted as `DB_HOST=host:port`; the app will use the embedded port automatically. If the connected production database is empty, the app runs its schema setup on first successful connection unless `KWARTA_AUTO_SCHEMA=0` is set.
+
 After saving environment variables, redeploy the project. Vercel does not apply new environment variables to an already-built deployment until a new deployment is created.
 
 ### Database Health Check

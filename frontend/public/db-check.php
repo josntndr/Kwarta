@@ -7,30 +7,33 @@ require_once __DIR__ . '/../../backend/config/database.php';
 header('Content-Type: text/plain; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
+$host = (string) ($dbHost ?? '');
+$port = (string) ($dbPort ?? '');
+$rawHost = (string) ($rawDbHost ?? '');
+$hasConnectionString = !empty($databaseUrl) || (!empty($hostEndpoint['user']) && !empty($hostEndpoint['database']));
 $required = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_PORT'];
 $missing = [];
 
-foreach ($required as $key) {
-    $aliases = match ($key) {
-        'DB_HOST' => ['DB_HOST', 'MYSQLHOST'],
-        'DB_NAME' => ['DB_NAME', 'MYSQLDATABASE'],
-        'DB_USER' => ['DB_USER', 'MYSQLUSER'],
-        'DB_PASSWORD' => ['DB_PASSWORD', 'MYSQLPASSWORD', 'DB_PASS'],
-        'DB_PORT' => ['DB_PORT', 'MYSQLPORT'],
-        default => [$key],
-    };
-    $value = kwarta_env($aliases);
-    if ($value === false || trim((string) $value) === '') {
-        $missing[] = $key;
+if (!$hasConnectionString) {
+    foreach ($required as $key) {
+        $value = match ($key) {
+            'DB_HOST' => $host,
+            'DB_NAME' => (string) ($dbName ?? ''),
+            'DB_USER' => (string) ($dbUser ?? ''),
+            'DB_PASSWORD' => (string) ($dbPass ?? ''),
+            'DB_PORT' => $port,
+            default => '',
+        };
+        if (trim($value) === '') {
+            $missing[] = $key;
+        }
     }
 }
 
 $isProduction = getenv('VERCEL') === '1' || getenv('APP_ENV') === 'production';
-$host = (string) ($dbHost ?? '');
-$port = (string) ($dbPort ?? '');
 $localHostUsed = in_array($host, ['localhost', '127.0.0.1'], true);
 $privateRailwayHostUsed = str_contains($host, '.railway.internal') || str_ends_with($host, 'railway.internal');
-$hostHasCopiedLabel = str_contains($host, 'Value:') || str_contains($host, 'Host:') || str_contains($host, 'mysql://') || str_contains($host, ' ');
+$hostHasCopiedLabel = str_contains($rawHost, 'Value:') || str_contains($rawHost, 'Host:') || str_contains($host, ' ');
 $portIsInvalid = $port === '' || !ctype_digit($port);
 
 echo "Kwarta Database Check\n";
@@ -42,6 +45,7 @@ echo 'DB_USER set: ' . (($dbUser ?? '') !== '' ? 'yes' : 'no') . "\n";
 echo 'DB_PASSWORD set: ' . (($dbPass ?? '') !== '' ? 'yes' : 'no') . "\n";
 echo 'DB_PORT set: ' . ($port !== '' ? 'yes' : 'no') . "\n";
 echo 'DB_PORT format: ' . (!$portIsInvalid ? 'valid number' : 'invalid, use numbers only') . "\n";
+echo 'Connection string set: ' . ($hasConnectionString ? 'yes' : 'no') . "\n";
 
 if ($isProduction && $localHostUsed) {
     echo "Status: failed\n";
@@ -51,7 +55,7 @@ if ($isProduction && $localHostUsed) {
 
 if ($isProduction && $hostHasCopiedLabel) {
     echo "Status: failed\n";
-    echo "Problem: DB_HOST format looks invalid. Paste only the hostname, without labels, spaces, mysql://, username, password, or port.\n";
+    echo "Problem: DB_HOST format looks invalid. Paste only the hostname or host:port endpoint, without labels or spaces.\n";
     echo "Example: roundhouse.proxy.rlwy.net\n";
     exit;
 }
