@@ -67,7 +67,7 @@ function get_categories(PDO $pdo, ?string $type = null): array
 
     $stmt = $pdo->prepare('
         SELECT * FROM categories
-        WHERE type = :type OR type = "both"
+        WHERE type = :type OR type = \'both\'
         ORDER BY name
     ');
     $stmt->execute(['type' => $type]);
@@ -102,7 +102,7 @@ function validate_date(string $date): bool
 
 function category_belongs_to_type(PDO $pdo, int $categoryId, string $type): bool
 {
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM categories WHERE id = :id AND (type = :type OR type = "both")');
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM categories WHERE id = :id AND (type = :type OR type = \'both\')');
     $stmt->execute(['id' => $categoryId, 'type' => $type]);
     return (int) $stmt->fetchColumn() > 0;
 }
@@ -326,7 +326,7 @@ function evaluate_achievements(PDO $pdo, int $userId): void
         SELECT COALESCE(SUM(amount), 0)
         FROM transactions
         WHERE user_id = :user_id
-          AND type = "income"
+          AND type = \'income\'
           AND transaction_date >= :month_start
           AND transaction_date < :month_end
     ');
@@ -346,7 +346,7 @@ function evaluate_achievements(PDO $pdo, int $userId): void
             SELECT category_id, SUM(amount) AS spent
             FROM transactions
             WHERE user_id = :spent_user_id
-              AND type = "expense"
+              AND type = \'expense\'
               AND transaction_date >= :month_start
               AND transaction_date < :month_end
             GROUP BY category_id
@@ -373,7 +373,7 @@ function evaluate_achievements(PDO $pdo, int $userId): void
             SELECT category_id, SUM(amount) AS spent
             FROM transactions
             WHERE user_id = :spent_user_id
-              AND type = "expense"
+              AND type = \'expense\'
               AND transaction_date >= :month_start
               AND transaction_date < :month_end
             GROUP BY category_id
@@ -444,8 +444,8 @@ function gamification_profile(PDO $pdo, int $userId, bool $refreshProgress = fal
         SELECT COALESCE(SUM(amount), 0)
         FROM transactions
         WHERE user_id = :user_id
-          AND type = "expense"
-          AND category_id = (SELECT id FROM categories WHERE name = "Savings" LIMIT 1)
+          AND type = \'expense\'
+          AND category_id = (SELECT id FROM categories WHERE name = \'Savings\' LIMIT 1)
           AND transaction_date >= :week_start
     ');
     $stmt->execute(['user_id' => $userId, 'week_start' => $weekStart]);
@@ -455,11 +455,11 @@ function gamification_profile(PDO $pdo, int $userId, bool $refreshProgress = fal
         SELECT b.amount,
                COALESCE(SUM(t.amount), 0) AS spent
         FROM budgets b
-        JOIN categories c ON c.id = b.category_id AND c.name = "Food"
+        JOIN categories c ON c.id = b.category_id AND c.name = \'Food\'
         LEFT JOIN transactions t
             ON t.user_id = b.user_id
            AND t.category_id = b.category_id
-           AND t.type = "expense"
+           AND t.type = \'expense\'
            AND t.transaction_date >= :month_start
            AND t.transaction_date < :month_end
         WHERE b.user_id = :user_id AND b.month = :month

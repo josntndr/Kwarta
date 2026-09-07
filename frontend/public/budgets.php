@@ -71,10 +71,10 @@ $stmt = $pdo->prepare('
     LEFT JOIN transactions t
        ON t.category_id = c.id
        AND t.user_id = :transaction_user_id
-       AND t.type = "expense"
+       AND t.type = \'expense\'
        AND t.transaction_date >= :month_start
        AND t.transaction_date < :month_end
-    WHERE c.type IN ("expense", "both")
+    WHERE c.type IN (\'expense\', \'both\')
     GROUP BY c.id, c.name, b.amount
     ORDER BY c.name
 ');

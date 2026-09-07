@@ -21,15 +21,15 @@ $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE created_at >= :month_sta
 $stmt->execute(['month_start' => $monthStart . ' 00:00:00']);
 $stats['new_month'] = (int) $stmt->fetchColumn();
 
-$stats['active_users'] = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE status = "active"')->fetchColumn();
-$stats['inactive_users'] = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE status = "inactive"')->fetchColumn();
+$stats['active_users'] = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE status = \'active\'')->fetchColumn();
+$stats['inactive_users'] = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE status = \'inactive\'')->fetchColumn();
 $stats['transactions'] = (int) $pdo->query('SELECT COUNT(*) FROM transactions')->fetchColumn();
 $stats['savings_goals'] = (int) $pdo->query('SELECT COUNT(*) FROM savings_goals')->fetchColumn();
 $stats['receipts'] = (int) $pdo->query('SELECT COUNT(*) FROM monthly_receipt_logs')->fetchColumn();
 $stats['game_users'] = (int) $pdo->query('SELECT COUNT(*) FROM user_game_stats WHERE xp > 0 OR last_activity_date IS NOT NULL')->fetchColumn();
 
 $stmt = $pdo->query('
-    SELECT DATE_FORMAT(created_at, "%Y-%m") AS month_key, COUNT(*) AS total
+    SELECT DATE_FORMAT(created_at, \'%Y-%m\') AS month_key, COUNT(*) AS total
     FROM users
     WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
     GROUP BY month_key

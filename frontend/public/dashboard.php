@@ -16,10 +16,10 @@ $chartEnd = date('Y-m-d', strtotime('first day of next month'));
 
 $stmt = $pdo->prepare('
     SELECT
-        COALESCE(SUM(CASE WHEN type = "income" THEN amount ELSE 0 END), 0) AS total_income,
-        COALESCE(SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END), 0) AS total_expenses,
-        COALESCE(SUM(CASE WHEN type = "income" AND transaction_date >= :income_month_start AND transaction_date < :income_month_end THEN amount ELSE 0 END), 0) AS monthly_income,
-        COALESCE(SUM(CASE WHEN type = "expense" AND transaction_date >= :expense_month_start AND transaction_date < :expense_month_end THEN amount ELSE 0 END), 0) AS monthly_expenses
+        COALESCE(SUM(CASE WHEN type = \'income\' THEN amount ELSE 0 END), 0) AS total_income,
+        COALESCE(SUM(CASE WHEN type = \'expense\' THEN amount ELSE 0 END), 0) AS total_expenses,
+        COALESCE(SUM(CASE WHEN type = \'income\' AND transaction_date >= :income_month_start AND transaction_date < :income_month_end THEN amount ELSE 0 END), 0) AS monthly_income,
+        COALESCE(SUM(CASE WHEN type = \'expense\' AND transaction_date >= :expense_month_start AND transaction_date < :expense_month_end THEN amount ELSE 0 END), 0) AS monthly_expenses
     FROM transactions
     WHERE user_id = :user_id
 ');
@@ -64,7 +64,7 @@ $stmt = $pdo->prepare('
         SELECT category_id, SUM(amount) AS spent_amount
         FROM transactions
         WHERE user_id = :spent_user_id
-          AND type = "expense"
+          AND type = \'expense\'
           AND transaction_date >= :month_start
           AND transaction_date < :month_end
         GROUP BY category_id
@@ -112,7 +112,7 @@ $stmt = $pdo->prepare('
     FROM transactions t
     JOIN categories c ON c.id = t.category_id
     WHERE t.user_id = :user_id
-      AND t.type = "expense"
+      AND t.type = \'expense\'
       AND t.transaction_date >= :month_start
       AND t.transaction_date < :month_end
     GROUP BY c.id, c.name
@@ -126,9 +126,9 @@ $stmt->execute([
 $categoryRows = $stmt->fetchAll();
 
 $stmt = $pdo->prepare('
-    SELECT DATE_FORMAT(transaction_date, "%Y-%m") AS month_key,
-           COALESCE(SUM(CASE WHEN type = "income" THEN amount ELSE 0 END), 0) AS income,
-           COALESCE(SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END), 0) AS expenses
+    SELECT DATE_FORMAT(transaction_date, \'%Y-%m\') AS month_key,
+           COALESCE(SUM(CASE WHEN type = \'income\' THEN amount ELSE 0 END), 0) AS income,
+           COALESCE(SUM(CASE WHEN type = \'expense\' THEN amount ELSE 0 END), 0) AS expenses
     FROM transactions
     WHERE user_id = :user_id
       AND transaction_date >= :chart_start

@@ -30,7 +30,7 @@ $stmt = $pdo->prepare('
     WHERE t.user_id = :user_id
       AND t.transaction_date >= :month_start
       AND t.transaction_date < :month_end
-      AND t.type = "expense"
+      AND t.type = \'expense\'
     ORDER BY t.transaction_date ASC, t.id ASC
 ');
 $stmt->execute(['user_id' => $userId, 'month_start' => $monthStart, 'month_end' => $monthEnd]);
@@ -38,9 +38,9 @@ $expenseRows = $stmt->fetchAll();
 
 $stmt = $pdo->prepare('
     SELECT
-        COALESCE(SUM(CASE WHEN t.type = "income" THEN t.amount ELSE 0 END), 0) AS income,
-        COALESCE(SUM(CASE WHEN t.type = "expense" THEN t.amount ELSE 0 END), 0) AS expenses,
-        COUNT(CASE WHEN t.type = "expense" THEN 1 END) AS expense_count
+        COALESCE(SUM(CASE WHEN t.type = \'income\' THEN t.amount ELSE 0 END), 0) AS income,
+        COALESCE(SUM(CASE WHEN t.type = \'expense\' THEN t.amount ELSE 0 END), 0) AS expenses,
+        COUNT(CASE WHEN t.type = \'expense\' THEN 1 END) AS expense_count
     FROM transactions t
     WHERE t.user_id = :user_id
       AND t.transaction_date >= :month_start
@@ -61,7 +61,7 @@ $stmt = $pdo->prepare('
     WHERE t.user_id = :user_id
       AND t.transaction_date >= :month_start
       AND t.transaction_date < :month_end
-      AND t.type = "expense"
+      AND t.type = \'expense\'
     GROUP BY c.id, c.name
     ORDER BY total DESC
     LIMIT 1
@@ -77,8 +77,8 @@ $stmt = $pdo->prepare('
     WHERE t.user_id = :user_id
       AND t.transaction_date >= :month_start
       AND t.transaction_date < :month_end
-      AND t.type = "expense"
-      AND LOWER(c.name) = "savings"
+      AND t.type = \'expense\'
+      AND LOWER(c.name) = \'savings\'
 ');
 $stmt->execute(['user_id' => $userId, 'month_start' => $monthStart, 'month_end' => $monthEnd]);
 $totalSavings = (float) $stmt->fetchColumn();
