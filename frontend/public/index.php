@@ -53,27 +53,37 @@ require_once __DIR__ . '/../../backend/includes/header.php';
     </div>
     <div class="landing-feature-grid">
         <article class="landing-feature-card">
-            <span class="pixel-nav-icon nav-icon-coin" aria-hidden="true"></span>
+            <div class="landing-feature-icon-box">
+                <span class="pixel-nav-icon nav-icon-coin" aria-hidden="true"></span>
+            </div>
             <h3>Track Income and Expenses</h3>
             <p>Log money in and out, categorize records, and understand where your pesos go.</p>
         </article>
         <article class="landing-feature-card">
-            <span class="pixel-nav-icon nav-icon-piggy" aria-hidden="true"></span>
+            <div class="landing-feature-icon-box">
+                <span class="pixel-nav-icon nav-icon-piggy" aria-hidden="true"></span>
+            </div>
             <h3>Manage Savings Cart</h3>
             <p>Plan items you want to buy, set target months, and mark items as already bought.</p>
         </article>
         <article class="landing-feature-card">
-            <span class="pixel-nav-icon nav-icon-wallet" aria-hidden="true"></span>
+            <div class="landing-feature-icon-box">
+                <span class="pixel-nav-icon nav-icon-wallet" aria-hidden="true"></span>
+            </div>
             <h3>Monitor Budgets</h3>
             <p>Set monthly category limits and see progress before spending gets out of hand.</p>
         </article>
         <article class="landing-feature-card">
-            <span class="pixel-nav-icon nav-icon-trophy" aria-hidden="true"></span>
+            <div class="landing-feature-icon-box">
+                <span class="pixel-nav-icon nav-icon-trophy" aria-hidden="true"></span>
+            </div>
             <h3>Earn Streaks and Badges</h3>
             <p>Build better habits with XP, rewards, quests, and friendly progress signals.</p>
         </article>
         <article class="landing-feature-card">
-            <span class="pixel-nav-icon nav-icon-receipt" aria-hidden="true"></span>
+            <div class="landing-feature-icon-box">
+                <span class="pixel-nav-icon nav-icon-receipt" aria-hidden="true"></span>
+            </div>
             <h3>Review Monthly Receipts</h3>
             <p>Generate receipt-style monthly summaries to see income, expenses, and remaining balance.</p>
         </article>
