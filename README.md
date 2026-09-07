@@ -237,7 +237,7 @@ If the deployed link opens but login/register show a database warning, Vercel is
 
 ### Production Database Setup
 
-Vercel runs the PHP app, but it does not host MySQL for this project. Create a hosted MySQL database first, then import [database/kwarta.sql](database/kwarta.sql). Good beginner-friendly options are Aiven MySQL, Railway MySQL, PlanetScale-compatible MySQL, or any cPanel/MySQL host that allows remote connections.
+Vercel runs the PHP app, but it does not host MySQL for this project. For a no-subscription option, use Aiven Free MySQL. Aiven's free tier currently offers one always-free MySQL service with 1 GB storage, no credit card, and no trial expiry. Railway is not recommended for this project unless you can keep an active paid plan, because expired trials stop the database service.
 
 In Vercel, open **Project > Settings > Environment Variables** and add these for **Production**:
 
@@ -247,6 +247,8 @@ DB_PORT=3306
 DB_NAME=your-database-name
 DB_USER=your-database-user
 DB_PASSWORD=your-database-password
+DB_SSL=true
+DB_SSL_VERIFY=false
 APP_SECRET=use-a-long-random-string
 APP_URL=https://kwarta-financial-tracker.vercel.app
 APP_ENV=production
@@ -259,6 +261,18 @@ DATABASE_URL=mysql://user:password@host:3306/database_name
 ```
 
 Kwarta also accepts a provider endpoint pasted as `DB_HOST=host:port`; the app will use the embedded port automatically. If the connected production database is empty, the app runs its schema setup on first successful connection unless `KWARTA_AUTO_SCHEMA=0` is set.
+
+### Free Aiven MySQL Setup
+
+Use Aiven Free MySQL when Railway expires:
+
+1. Create a free Aiven account at `https://console.aiven.io` using Google/GitHub/email. Aiven says the Free MySQL service does not require a credit card.
+2. Create a MySQL service on the Free tier. You cannot pick an exact cloud/region on Free.
+3. Open the service overview and copy the connection values:
+   `host`, `port`, `database`, `user`, and `password`.
+4. In Vercel Production environment variables, replace the expired Railway values:
+   `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and set `DB_SSL=true`.
+5. Redeploy Vercel. Kwarta will create/repair its schema automatically on first successful connection.
 
 After saving environment variables, redeploy the project. Vercel does not apply new environment variables to an already-built deployment until a new deployment is created.
 
