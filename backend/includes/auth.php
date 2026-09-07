@@ -220,7 +220,9 @@ function csrf_token(): string
         'exp' => time() + 3600,
     ]);
 
-    setcookie(kwarta_csrf_cookie_name(), $requestToken, kwarta_cookie_options(0));
+    if (!headers_sent()) {
+        setcookie(kwarta_csrf_cookie_name(), $requestToken, kwarta_cookie_options(0));
+    }
 
     return $requestToken;
 }
