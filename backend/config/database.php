@@ -197,16 +197,20 @@ function kwarta_configure_database_session(PDO $pdo): void
             return;
         }
 
-        $currentSqlMode = (string) $pdo->query('SELECT @@SESSION.sql_mode')->fetchColumn();
-        $sqlModes = array_filter(
-            array_map('trim', explode(',', $currentSqlMode)),
-            static fn (string $mode): bool => strtoupper($mode) !== 'ANSI_QUOTES'
-        );
-
-        $pdo->exec('SET SESSION sql_mode = ' . $pdo->quote(implode(',', $sqlModes)));
+        $pdo->exec("SET SESSION sql_mode = REPLACE(@@SESSION.sql_mode, 'ANSI_QUOTES', '')");
     } catch (Throwable $error) {
         error_log('[Kwarta database session] ' . $error->getMessage());
     }
+}
+
+function kwarta_should_auto_schema(bool $isProduction): bool
+{
+    $configured = kwarta_env(['KWARTA_AUTO_SCHEMA']);
+    if ($configured !== null) {
+        return !in_array(strtolower($configured), ['0', 'false', 'no', 'off'], true);
+    }
+
+    return !$isProduction;
 }
 
 function kwarta_is_guest_route(): bool
@@ -760,10 +764,7 @@ if ($isProduction && !$productionDbHost) {
         }
     }
 
-    if ($pdo instanceof PDO) {
-        $shouldAutoSchema = kwarta_env(['KWARTA_AUTO_SCHEMA'], '1') !== '0';
-        if ($shouldAutoSchema) {
-            kwarta_ensure_database_schema($pdo);
-        }
+    if ($pdo instanceof PDO && kwarta_should_auto_schema($isProduction)) {
+        kwarta_ensure_database_schema($pdo);
     }
 }

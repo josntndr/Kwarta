@@ -249,6 +249,7 @@ DB_USER=your-database-user
 DB_PASSWORD=your-database-password
 DB_SSL=true
 DB_SSL_VERIFY=false
+KWARTA_AUTO_SCHEMA=0
 APP_SECRET=use-a-long-random-string
 APP_URL=https://kwarta-financial-tracker.vercel.app
 APP_ENV=production
@@ -260,7 +261,7 @@ If your database provider gives one connection string instead, add it as `DATABA
 DATABASE_URL=mysql://user:password@host:3306/database_name
 ```
 
-Kwarta also accepts a provider endpoint pasted as `DB_HOST=host:port`; the app will use the embedded port automatically. If the connected production database is empty, the app runs its schema setup on first successful connection unless `KWARTA_AUTO_SCHEMA=0` is set.
+Kwarta also accepts a provider endpoint pasted as `DB_HOST=host:port`; the app will use the embedded port automatically. For faster production page loads, keep `KWARTA_AUTO_SCHEMA=0` after the database schema has been created.
 
 ### Free Aiven MySQL Setup
 
@@ -272,7 +273,8 @@ Use Aiven Free MySQL when Railway expires:
    `host`, `port`, `database`, `user`, and `password`.
 4. In Vercel Production environment variables, replace the expired Railway values:
    `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and set `DB_SSL=true`.
-5. Redeploy Vercel. Kwarta will create/repair its schema automatically on first successful connection.
+5. Temporarily set `KWARTA_AUTO_SCHEMA=1` or open `setup-database.php?token=YOUR_SETUP_TOKEN` once if the database is empty.
+6. Set `KWARTA_AUTO_SCHEMA=0` and redeploy Vercel so normal page loads skip migration checks.
 
 After saving environment variables, redeploy the project. Vercel does not apply new environment variables to an already-built deployment until a new deployment is created.
 
