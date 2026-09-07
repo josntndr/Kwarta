@@ -7,7 +7,7 @@ require_admin();
 $pageTitle = 'User Statistics';
 
 $stmt = $pdo->query('
-    SELECT DATE_FORMAT(created_at, "%Y-%m") AS month_key, COUNT(*) AS total
+    SELECT DATE_FORMAT(created_at, \'%Y-%m\') AS month_key, COUNT(*) AS total
     FROM users
     GROUP BY month_key
     ORDER BY month_key DESC
