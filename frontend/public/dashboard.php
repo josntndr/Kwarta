@@ -262,7 +262,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                 <div class="stat-icon pixel-money coin"><i class="bi bi-coin"></i></div>
                 <div>
                     <div class="text-muted-small">Total Income</div>
-                    <div class="h4 fw-bold mb-0"><?= e(peso($totalIncome)) ?></div>
+                    <div class="h4 fw-bold mb-0 text-success"><?= e(peso($totalIncome)) ?></div>
                 </div>
             </div>
         </div>
@@ -273,7 +273,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                 <div class="stat-icon expense pixel-money bag"><i class="bi bi-bag"></i></div>
                 <div>
                     <div class="text-muted-small">Total Expenses</div>
-                    <div class="h4 fw-bold mb-0"><?= e(peso($totalExpenses)) ?></div>
+                    <div class="h4 fw-bold mb-0 text-danger"><?= e(peso($totalExpenses)) ?></div>
                 </div>
             </div>
         </div>
@@ -284,7 +284,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                 <div class="stat-icon balance pixel-money wallet"><i class="bi bi-wallet2"></i></div>
                 <div>
                     <div class="text-muted-small">Current Balance</div>
-                    <div class="h4 fw-bold mb-0"><?= e(peso($balance)) ?></div>
+                    <div class="h4 fw-bold mb-0 text-primary"><?= e(peso($balance)) ?></div>
                 </div>
             </div>
         </div>
@@ -299,7 +299,7 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     <span class="pixel-icon pixel-money piggy"><i class="bi bi-piggy-bank"></i></span>
                     <div>
                         <div class="text-muted-small">Monthly Savings</div>
-                        <div class="h4 fw-bold mb-0"><?= e(peso($monthlySavings)) ?></div>
+                        <div class="h4 fw-bold mb-0 <?= $monthlySavings >= 0 ? 'text-success' : 'text-danger' ?>"><?= e(peso($monthlySavings)) ?></div>
                     </div>
                 </div>
                 <div class="text-muted-small">You earned <?= e(peso($monthlyIncome)) ?> and spent <?= e(peso($monthlyExpenses)) ?> this month.</div>
