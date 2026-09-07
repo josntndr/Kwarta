@@ -190,6 +190,25 @@ function kwarta_should_retry_with_ssl(Throwable $error): bool
         || str_contains($message, 'bad handshake');
 }
 
+function kwarta_configure_database_session(PDO $pdo): void
+{
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') {
+            return;
+        }
+
+        $currentSqlMode = (string) $pdo->query('SELECT @@SESSION.sql_mode')->fetchColumn();
+        $sqlModes = array_filter(
+            array_map('trim', explode(',', $currentSqlMode)),
+            static fn (string $mode): bool => strtoupper($mode) !== 'ANSI_QUOTES'
+        );
+
+        $pdo->exec('SET SESSION sql_mode = ' . $pdo->quote(implode(',', $sqlModes)));
+    } catch (Throwable $error) {
+        error_log('[Kwarta database session] ' . $error->getMessage());
+    }
+}
+
 function kwarta_is_guest_route(): bool
 {
     $script = basename($_SERVER['SCRIPT_NAME'] ?? '');
@@ -716,6 +735,7 @@ if ($isProduction && !$productionDbHost) {
             $dbPass,
             kwarta_pdo_options($shouldUseSsl)
         );
+        kwarta_configure_database_session($pdo);
     } catch (PDOException $e) {
         if (!$isProduction || $shouldUseSsl || !kwarta_should_retry_with_ssl($e)) {
             kwarta_database_unavailable(
@@ -730,6 +750,7 @@ if ($isProduction && !$productionDbHost) {
                     $dbPass,
                     kwarta_pdo_options(true)
                 );
+                kwarta_configure_database_session($pdo);
             } catch (PDOException $sslError) {
                 kwarta_database_unavailable(
                     'Kwarta is online, but it cannot connect to the production database yet. Please verify DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD in Vercel.',
