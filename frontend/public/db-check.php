@@ -98,6 +98,7 @@ if (!$pdo instanceof PDO) {
 
         if (str_contains($message, 'php_network_getaddresses') || str_contains($message, 'Name or service not known')) {
             echo "Likely cause: DB_HOST cannot be resolved from Vercel. Use the public database host, not a private/internal host.\n";
+            echo "Aiven note: if the public hostname still fails DNS on Vercel, set DB_HOST to the hostname's resolved public IP and keep DB_SSL=true with DB_SSL_VERIFY=false.\n";
         } elseif (str_contains($message, 'Connection timed out') || str_contains($message, 'No route to host')) {
             echo "Likely cause: DB_HOST or DB_PORT is not publicly reachable from Vercel.\n";
         } elseif (str_contains($message, 'Access denied')) {
