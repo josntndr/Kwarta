@@ -312,20 +312,22 @@ function sendHtml(res, html) {
 }
 
 function authCard(title, subtitle, fields, action, footer) {
-  const keepLogin = action === '/login' ? '<div class="form-check mb-4"><input class="form-check-input" id="keepLogin" type="checkbox" name="keepLogin" value="1"><label class="form-check-label" for="keepLogin">Keep me logged in</label></div>' : '';
-  return `<div class="card auth-card"><div class="card-body p-4 p-md-5">
-    <div class="text-center mb-4">
-      <img class="auth-logo mx-auto mb-3" src="/images/mascot-default.png" alt="Kwarta mascot logo" onerror="this.onerror=null;this.src='/images/mascot-default.png';">
-      <h1 class="h3 fw-bold mb-1">${title}</h1>
-      <p class="text-muted mb-0">${subtitle}</p>
+  const isRegister = action === '/register';
+  return `<div class="card auth-card login-card ${isRegister ? 'register-card' : ''}">
+    <div class="card-body login-card-body">
+      <div class="text-center login-header">
+        <img class="auth-logo login-logo mx-auto" src="/images/mascot-default.png" alt="Kwarta mascot logo" onerror="this.onerror=null;this.src='/images/mascot-default.png';">
+        <span class="login-kicker">${isRegister ? 'Kwarta Player Signup' : 'Kwarta Player Login'}</span>
+        <h1>${title}</h1>
+        <p class="text-muted mb-0">${subtitle}</p>
+      </div>
+      <form class="login-form" method="post" action="${action}">
+        ${fields}
+        <button class="btn btn-success login-submit" type="submit">${isRegister ? 'Register' : 'Login'}</button>
+      </form>
+      <div class="login-register">${footer}</div>
     </div>
-    <form method="post" action="${action}">
-      ${fields}
-      ${keepLogin}
-      <button class="btn btn-success w-100" type="submit">${action === '/register' ? 'Register' : 'Login'}</button>
-    </form>
-    <p class="text-center mt-4 mb-0">${footer}</p>
-  </div></div>`;
+  </div>`;
 }
 
 function landing(req, res) {
@@ -939,11 +941,11 @@ async function route(req, res) {
   if (url.pathname === '/') return user ? redirect(res, user.role === 'admin' ? '/admin/dashboard' : '/dashboard') : landing(req, res);
   if (url.pathname === '/login' && req.method === 'GET') {
     if (user) return redirect(res, user.role === 'admin' ? '/admin/dashboard' : '/dashboard');
-    return sendHtml(res, page(req, null, 'Login', authCard('Welcome back to Kwarta', 'Sign in to view your dashboard.', '<div class="mb-3"><label class="form-label">Email</label><input class="form-control" type="email" name="email" required></div><div class="mb-4"><label class="form-label">Password</label><input class="form-control" type="password" name="password" required></div>', '/login', 'New to Kwarta? <a href="/register">Create an account</a>')));
+    return sendHtml(res, page(req, null, 'Login', authCard('Welcome back to Kwarta', 'Sign in to view your dashboard.', '<div class="login-field"><label class="form-label">Email</label><input class="form-control login-input" type="email" name="email" placeholder="Enter your email" required></div><div class="login-field"><label class="form-label">Password</label><input class="form-control login-input" type="password" name="password" placeholder="Enter your password" required></div>', '/login', 'New to Kwarta? <a href="/register">Create an account</a>')));
   }
   if (url.pathname === '/register' && req.method === 'GET') {
     if (user) return redirect(res, user.role === 'admin' ? '/admin/dashboard' : '/dashboard');
-    return sendHtml(res, page(req, null, 'Register', authCard('Create your Kwarta account', 'Track your money with simple tools.', '<div class="mb-3"><label class="form-label">Name</label><input class="form-control" name="name" required></div><div class="mb-3"><label class="form-label">Email</label><input class="form-control" type="email" name="email" required></div><div class="mb-4"><label class="form-label">Password</label><input class="form-control" type="password" minlength="8" required></div>', '/register', 'Already have an account? <a href="/login">Log in</a>')));
+    return sendHtml(res, page(req, null, 'Register', authCard('Create your Kwarta account', 'Track your money with simple tools.', '<div class="login-field"><label class="form-label">Name</label><input class="form-control login-input" name="name" placeholder="Enter your name" required></div><div class="login-field"><label class="form-label">Email</label><input class="form-control login-input" type="email" name="email" placeholder="Enter your email" required></div><div class="login-field"><label class="form-label">Password</label><input class="form-control login-input" type="password" name="password" placeholder="Create a password" minlength="8" required></div>', '/register', 'Already have an account? <a href="/login">Log in</a>')));
   }
   if (url.pathname === '/logout') {
     const sid = parseCookies(req).kwarta_sid;
