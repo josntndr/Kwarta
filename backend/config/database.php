@@ -132,9 +132,9 @@ function kwarta_connection_query_requires_ssl(?string $query): bool
     }
 
     parse_str($query, $params);
-    foreach (['ssl', 'sslmode', 'ssl-mode'] as $key) {
+    foreach (['ssl', 'sslaccept', 'sslmode', 'ssl-mode'] as $key) {
         $value = strtolower((string) ($params[$key] ?? ''));
-        if (in_array($value, ['1', 'true', 'yes', 'on', 'required', 'require', 'verify-ca', 'verify_identity'], true)) {
+        if (in_array($value, ['1', 'true', 'yes', 'on', 'strict', 'required', 'require', 'verify-ca', 'verify_identity'], true)) {
             return true;
         }
     }
@@ -156,10 +156,20 @@ function kwarta_pdo_options(bool $useSsl = false): array
 
     $sslCa = kwarta_env(['DB_SSL_CA', 'MYSQL_SSL_CA']);
     if ($sslCa === null) {
-        $sslCa = is_file('/etc/ssl/certs/ca-certificates.crt') ? '/etc/ssl/certs/ca-certificates.crt' : '';
+        $sslCa = '/etc/ssl/certs/ca-certificates.crt';
+        foreach ([
+            '/etc/ssl/certs/ca-certificates.crt',
+            '/etc/pki/tls/certs/ca-bundle.crt',
+            '/etc/ssl/cert.pem',
+        ] as $candidate) {
+            if (is_file($candidate)) {
+                $sslCa = $candidate;
+                break;
+            }
+        }
     }
 
-    if ($sslCa !== '' && defined('PDO::MYSQL_ATTR_SSL_CA')) {
+    if (defined('PDO::MYSQL_ATTR_SSL_CA')) {
         $options[constant('PDO::MYSQL_ATTR_SSL_CA')] = $sslCa;
     }
 
