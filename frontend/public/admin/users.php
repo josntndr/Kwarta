@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare('
         UPDATE users
         SET status = :status
-        WHERE id = :id AND role <> "admin"
+        WHERE id = :id AND role <> \'admin\'
     ');
     $stmt->execute(['status' => $status, 'id' => $userId]);
 
