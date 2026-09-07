@@ -115,6 +115,71 @@ function kwarta_parse_host_endpoint(?string $value): array
     return ['host' => $clean];
 }
 
+function kwarta_env_bool(array $keys, bool $default = false): bool
+{
+    $value = kwarta_env($keys);
+    if ($value === null) {
+        return $default;
+    }
+
+    return in_array(strtolower($value), ['1', 'true', 'yes', 'on', 'required', 'require'], true);
+}
+
+function kwarta_connection_query_requires_ssl(?string $query): bool
+{
+    if ($query === null || trim($query) === '') {
+        return false;
+    }
+
+    parse_str($query, $params);
+    foreach (['ssl', 'sslmode', 'ssl-mode'] as $key) {
+        $value = strtolower((string) ($params[$key] ?? ''));
+        if (in_array($value, ['1', 'true', 'yes', 'on', 'required', 'require', 'verify-ca', 'verify_identity'], true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function kwarta_pdo_options(bool $useSsl = false): array
+{
+    $options = [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ];
+
+    if (!$useSsl) {
+        return $options;
+    }
+
+    $sslCa = kwarta_env(['DB_SSL_CA', 'MYSQL_SSL_CA']);
+    if ($sslCa === null) {
+        $sslCa = is_file('/etc/ssl/certs/ca-certificates.crt') ? '/etc/ssl/certs/ca-certificates.crt' : '';
+    }
+
+    if ($sslCa !== '' && defined('PDO::MYSQL_ATTR_SSL_CA')) {
+        $options[constant('PDO::MYSQL_ATTR_SSL_CA')] = $sslCa;
+    }
+
+    if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
+        $options[constant('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')] = kwarta_env_bool(['DB_SSL_VERIFY', 'MYSQL_SSL_VERIFY'], false);
+    }
+
+    return $options;
+}
+
+function kwarta_should_retry_with_ssl(Throwable $error): bool
+{
+    $message = strtolower($error->getMessage());
+
+    return str_contains($message, 'mysql server has gone away')
+        || str_contains($message, 'requires secure transport')
+        || str_contains($message, 'ssl')
+        || str_contains($message, 'bad handshake');
+}
+
 function kwarta_is_guest_route(): bool
 {
     $script = basename($_SERVER['SCRIPT_NAME'] ?? '');
@@ -601,6 +666,7 @@ $dbUser = kwarta_env(['DB_USER', 'MYSQLUSER'], 'root');
 $dbPass = kwarta_env(['DB_PASSWORD', 'MYSQLPASSWORD', 'DB_PASS'], '');
 $isProduction = getenv('VERCEL') === '1' || kwarta_env(['APP_ENV']) === 'production';
 $hostEndpoint = kwarta_parse_host_endpoint($rawDbHost);
+$connectionQuery = !empty($hostEndpoint['query']) ? (string) $hostEndpoint['query'] : null;
 if (!empty($hostEndpoint['host'])) {
     $dbHost = (string) $hostEndpoint['host'];
 }
@@ -620,6 +686,7 @@ if ($databaseUrl !== null) {
     $dbUser = !empty($parts['user']) ? (string) $parts['user'] : $dbUser;
     $dbPass = array_key_exists('password', $parts) && $parts['password'] !== null ? (string) $parts['password'] : $dbPass;
     $dbName = !empty($parts['database']) ? (string) $parts['database'] : $dbName;
+    $connectionQuery = !empty($parts['query']) ? (string) $parts['query'] : $connectionQuery;
 }
 
 $productionDbHost = kwarta_env(['DB_HOST', 'MYSQLHOST']) !== null || $databaseUrl !== null;
@@ -630,25 +697,42 @@ if ($isProduction && !$productionDbHost) {
     );
 } else {
     try {
+        $dsn = 'mysql:host=' . $dbHost . ';port=' . $dbPort . ';dbname=' . $dbName . ';charset=utf8mb4';
+        $shouldUseSsl = kwarta_env_bool(['DB_SSL', 'MYSQL_SSL'], false) || kwarta_connection_query_requires_ssl($connectionQuery);
+
         $pdo = new PDO(
-            'mysql:host=' . $dbHost . ';port=' . $dbPort . ';dbname=' . $dbName . ';charset=utf8mb4',
+            $dsn,
             $dbUser,
             $dbPass,
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ]
+            kwarta_pdo_options($shouldUseSsl)
         );
+    } catch (PDOException $e) {
+        if (!$isProduction || $shouldUseSsl || !kwarta_should_retry_with_ssl($e)) {
+            kwarta_database_unavailable(
+                'Kwarta is online, but it cannot connect to the production database yet. Please verify DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD in Vercel.',
+                $e
+            );
+        } else {
+            try {
+                $pdo = new PDO(
+                    $dsn,
+                    $dbUser,
+                    $dbPass,
+                    kwarta_pdo_options(true)
+                );
+            } catch (PDOException $sslError) {
+                kwarta_database_unavailable(
+                    'Kwarta is online, but it cannot connect to the production database yet. Please verify DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD in Vercel.',
+                    $sslError
+                );
+            }
+        }
+    }
 
+    if ($pdo instanceof PDO) {
         $shouldAutoSchema = kwarta_env(['KWARTA_AUTO_SCHEMA'], '1') !== '0';
         if ($shouldAutoSchema) {
             kwarta_ensure_database_schema($pdo);
         }
-    } catch (PDOException $e) {
-        kwarta_database_unavailable(
-            'Kwarta is online, but it cannot connect to the production database yet. Please verify DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD in Vercel.',
-            $e
-        );
     }
 }
