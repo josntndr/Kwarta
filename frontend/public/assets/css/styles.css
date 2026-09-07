@@ -1304,18 +1304,24 @@ main.auth-shell {
 .login-options .form-check {
     display: flex;
     align-items: center;
+    gap: 0.55rem;
     min-height: auto;
     margin: 0;
-    padding-left: 1.5rem;
+    padding-left: 0;
 }
 
 .login-options .form-check-input {
-    width: 1rem;
-    height: 1rem;
+    position: static;
+    float: none;
+    margin-left: 0;
+    width: 1.1rem;
+    height: 1.1rem;
     margin-top: 0;
-    border: 2px solid rgba(107, 63, 29, 0.42);
+    border: 2px solid rgba(107, 63, 29, 0.55);
     border-radius: 4px;
     box-shadow: none;
+    cursor: pointer;
+    flex: 0 0 auto;
 }
 
 .login-options .form-check-input:checked {
@@ -1325,19 +1331,21 @@ main.auth-shell {
 
 .login-options .form-check-label {
     font-weight: 700;
+    cursor: pointer;
+    user-select: none;
 }
 
 .login-link,
 .login-register a {
     color: var(--accent);
     font-weight: 900;
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    text-decoration: none;
 }
 
 .login-link:hover,
 .login-register a:hover {
     color: var(--primary);
+    text-decoration: underline;
 }
 
 .btn.login-submit {
