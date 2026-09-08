@@ -465,21 +465,23 @@ body::before {
 }
 
 .player-chip {
-    padding: 0.6rem 0.85rem;
+    padding: 0.55rem 0.75rem;
     color: #FFF8E7;
     background: rgba(255, 248, 231, 0.08);
     border: 2px solid rgba(252, 209, 22, 0.28);
     border-radius: 12px;
     font-weight: 800;
-    max-width: 100%;
-    overflow: hidden;
+    width: 100%;
+    gap: 0.55rem;
 }
 
 .player-name-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: inline-block;
+    font-size: 0.81rem;
+    font-weight: 800;
+    line-height: 1.25;
     white-space: nowrap;
-    max-width: 170px;
+    color: #FFF8E7;
 }
 
 .pixel-logout {
