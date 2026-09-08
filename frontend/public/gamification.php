@@ -46,11 +46,43 @@ require_once __DIR__ . '/../../backend/includes/header.php';
     </div>
 </section>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="game-stat-tile"><span>XP</span><strong><?= (int) $stats['xp'] ?></strong></div></div>
-    <div class="col-md-3"><div class="game-stat-tile"><span>Level</span><strong><?= (int) $stats['level'] ?></strong></div></div>
-    <div class="col-md-3"><div class="game-stat-tile"><span>Badges</span><strong><?= count($unlockedBadges) ?>/<?= count($game['achievements']) ?></strong></div></div>
-    <div class="col-md-3"><div class="game-stat-tile"><span>Best Streak</span><strong><?= (int) $stats['longest_streak'] ?> days</strong></div></div>
+<<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="game-stat-tile">
+            <div class="stat-icon coin"><i class="bi bi-stars"></i></div>
+            <div>
+                <span>XP</span>
+                <strong><?= (int) $stats['xp'] ?></strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="game-stat-tile">
+            <div class="stat-icon wallet"><i class="bi bi-controller"></i></div>
+            <div>
+                <span>Level</span>
+                <strong><?= (int) $stats['level'] ?></strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="game-stat-tile">
+            <div class="stat-icon piggy"><i class="bi bi-award-fill"></i></div>
+            <div>
+                <span>Badges</span>
+                <strong><?= count($unlockedBadges) ?>/<?= count($game['achievements']) ?></strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="game-stat-tile">
+            <div class="stat-icon expense"><i class="bi bi-fire"></i></div>
+            <div>
+                <span>Best Streak</span>
+                <strong><?= (int) $stats['longest_streak'] ?> days</strong>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4">
@@ -66,8 +98,8 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     <?php foreach ($game['challenges'] as $challenge): ?>
                         <div class="col-md-6">
                             <div class="quest-card mission-card <?= $challenge['complete'] ? 'complete' : '' ?>">
-                                <div class="d-flex justify-content-between gap-2 mb-2">
-                                    <strong><?= e($challenge['name']) ?></strong>
+                                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                    <strong class="text-dark"><?= e($challenge['name']) ?></strong>
                                     <span class="badge <?= $challenge['complete'] ? 'text-bg-success' : 'text-bg-dark' ?>">
                                         <?= $challenge['complete'] ? 'Complete' : '+' . (int) $challenge['xp_reward'] . ' XP' ?>
                                     </span>
@@ -76,9 +108,9 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                                 <div class="progress mb-2">
                                     <div class="progress-bar bg-success" style="width: <?= (int) $challenge['progress'] ?>%"></div>
                                 </div>
-                                <div class="d-flex justify-content-between text-muted-small">
+                                <div class="d-flex justify-content-between text-muted-small fw-semibold">
                                     <span><?= e((string) $challenge['current']) ?> / <?= (int) $challenge['target'] ?></span>
-                                    <span><?= e(ucfirst($challenge['cadence'])) ?></span>
+                                    <span class="badge text-bg-light border"><?= e(ucfirst($challenge['cadence'])) ?></span>
                                 </div>
                                 <?php if ($challenge['complete']): ?>
                                     <div class="game-complete-message mt-3">Completion message: <?= e($challenge['name']) ?> cleared.</div>
@@ -91,11 +123,11 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <div class="quest-card mission-card shortcut-card">
-                            <div class="d-flex justify-content-between gap-2 mb-1">
-                                <strong>Review Monthly Receipt</strong>
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                <strong class="text-dark">Review Monthly Receipt</strong>
                                 <span class="badge text-bg-secondary">Shortcut</span>
                             </div>
-                            <div class="text-muted-small">See where your money went this month in a printable receipt summary.</div>
+                            <div class="text-muted-small mb-3">See where your money went this month in a printable receipt summary.</div>
                             <div class="shortcut-meta">
                                 <a class="btn btn-sm btn-outline-primary" href="receipt.php"><i class="bi bi-receipt"></i> Review Receipt</a>
                             </div>
@@ -103,11 +135,11 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     </div>
                     <div class="col-md-6">
                         <div class="quest-card mission-card shortcut-card">
-                            <div class="d-flex justify-content-between gap-2 mb-1">
-                                <strong>Plan a Savings Item</strong>
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                <strong class="text-dark">Plan a Savings Item</strong>
                                 <span class="badge text-bg-secondary">Shortcut</span>
                             </div>
-                            <div class="text-muted-small">Add an item to your savings cart and set a clear target for your next purchase.</div>
+                            <div class="text-muted-small mb-3">Add an item to your savings cart and set a clear target for your next purchase.</div>
                             <div class="shortcut-meta">
                                 <a class="btn btn-sm btn-outline-success" href="savings.php"><i class="bi bi-piggy-bank"></i> Open Savings</a>
                             </div>
@@ -134,8 +166,8 @@ require_once __DIR__ . '/../../backend/includes/header.php';
                     <?php endif; ?>
                     <?php foreach ($game['events'] as $event): ?>
                         <div class="xp-event">
-                            <div class="d-flex justify-content-between gap-2">
-                                <strong><?= str_contains($event['action_key'], 'achievement_') ? 'Badge Unlocked: ' : '' ?><?= e($event['description']) ?></strong>
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+                                <strong><i class="bi bi-stars text-warning me-1"></i> <?= str_contains($event['action_key'], 'achievement_') ? 'Badge Unlocked: ' : '' ?><?= e($event['description']) ?></strong>
                                 <span class="badge text-bg-success">+<?= (int) $event['xp'] ?> XP</span>
                             </div>
                             <div class="text-muted-small"><?= e(date('M d, Y h:i A', strtotime($event['created_at']))) ?></div>
@@ -153,17 +185,19 @@ require_once __DIR__ . '/../../backend/includes/header.php';
         <div class="row g-3">
             <?php foreach ($game['achievements'] as $achievement): ?>
                 <div class="col-md-4 col-xl-3">
-                    <div class="achievement-tile h-100 <?= $achievement['unlocked_at'] ? '' : 'locked' ?>">
+                    <div class="achievement-tile d-flex flex-column h-100 <?= $achievement['unlocked_at'] ? '' : 'locked' ?>">
                         <div class="d-flex align-items-center gap-2 mb-2">
                             <?= mascot_img($achievement['unlocked_at'] ? 'rewards' : 'guide', 'mascot-badge-img', 'Kwarta badge mascot') ?>
-                            <strong><?= e($achievement['name']) ?></strong>
+                            <strong class="text-dark"><?= e($achievement['name']) ?></strong>
                         </div>
-                        <div class="text-muted-small mb-2"><?= e($achievement['description']) ?></div>
-                        <?php if ($achievement['unlocked_at']): ?>
-                            <span class="badge text-bg-success">Unlocked</span>
-                        <?php else: ?>
-                            <span class="badge text-bg-secondary">Locked</span>
-                        <?php endif; ?>
+                        <div class="text-muted-small mb-3 flex-grow-1"><?= e($achievement['description']) ?></div>
+                        <div>
+                            <?php if ($achievement['unlocked_at']): ?>
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i> Unlocked</span>
+                            <?php else: ?>
+                                <span class="badge text-bg-secondary"><i class="bi bi-lock-fill me-1"></i> Locked</span>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>

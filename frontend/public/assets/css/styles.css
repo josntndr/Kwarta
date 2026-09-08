@@ -1713,45 +1713,40 @@ input[type="number"]::-webkit-inner-spin-button {
     transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
-.mission-card::after {
-    content: "";
-    position: absolute;
-    right: 0.75rem;
-    bottom: 0.75rem;
-    width: 28px;
-    height: 28px;
-    opacity: 0.18;
-    background:
-        linear-gradient(var(--secondary), var(--secondary)) 8px 2px / 12px 6px no-repeat,
-        linear-gradient(var(--success), var(--success)) 4px 8px / 20px 12px no-repeat,
-        linear-gradient(var(--border), var(--border)) 10px 20px / 8px 6px no-repeat;
-    image-rendering: pixelated;
-}
-
 .mission-card:hover {
     border-color: var(--secondary);
-    transform: translate(-2px, -2px);
-    box-shadow: 8px 8px 0 var(--shadow);
+    transform: translateY(-3px);
+    box-shadow: 6px 6px 0 rgba(43, 26, 15, 0.25);
 }
 
 .mission-card.complete {
     background:
         linear-gradient(90deg, rgba(46, 139, 87, 0.12) 1px, transparent 1px),
         linear-gradient(rgba(46, 139, 87, 0.12) 1px, transparent 1px),
-        linear-gradient(180deg, #f8ffd9, var(--kwarta-panel-2));
+        linear-gradient(180deg, #f8ffd9, #FFFDF7);
     background-size: 18px 18px, 18px 18px, auto;
 }
 
 .game-stat-tile,
 .profile-info-row,
 .settings-row {
-    border: 2px solid var(--border);
-    background: var(--background);
-    box-shadow: 3px 3px 0 rgba(43, 26, 15, 0.22);
+    border: 2.5px solid var(--border);
+    border-radius: 14px;
+    background: #FFFDF7;
+    box-shadow: 3px 3px 0 rgba(43, 26, 15, 0.18);
+    transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .game-stat-tile {
-    padding: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+}
+
+.game-stat-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 6px 6px 0 rgba(43, 26, 15, 0.26);
 }
 
 .game-stat-tile span,
@@ -1765,7 +1760,7 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .game-stat-tile strong {
     display: block;
-    color: var(--primary);
+    color: #0F3D2E;
     font-size: 1.4rem;
     line-height: 1.2;
 }
@@ -2072,9 +2067,19 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .xp-event {
-    border-left: 6px solid var(--kwarta-green);
-    background: var(--background);
-    padding: 0.7rem 0.85rem;
+    position: relative;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    border-left: 5px solid var(--kwarta-green);
+    background: #FFFDF7;
+    padding: 0.8rem 1rem;
+    box-shadow: 3px 3px 0 rgba(43, 26, 15, 0.14);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.xp-event:hover {
+    transform: translateY(-2px);
+    box-shadow: 5px 5px 0 rgba(43, 26, 15, 0.22);
 }
 
 .monthly-receipt-card {
