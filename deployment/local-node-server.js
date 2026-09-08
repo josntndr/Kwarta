@@ -228,6 +228,17 @@ function renderNav(req, user) {
   const activeUrl = new URL(req.url, `http://${req.headers.host}`);
   const activePath = activeUrl.pathname;
   const isAdminSection = activePath.startsWith('/admin');
+  const navIconBiMap = {
+    dashboard: 'speedometer2',
+    coin: 'arrow-left-right',
+    wallet: 'wallet2',
+    piggy: 'piggy-bank',
+    receipt: 'receipt',
+    game: 'controller',
+    avatar: 'person-fill',
+    chart: 'bar-chart-fill',
+    exit: 'box-arrow-right',
+  };
   const items = isAdminSection ? [
     { href: '/admin/dashboard', label: 'Admin Dashboard', icon: 'dashboard', paths: ['/admin/dashboard'] },
     { href: '/admin/stats', label: 'User Statistics', icon: 'chart', paths: ['/admin/stats'] },
@@ -245,7 +256,7 @@ function renderNav(req, user) {
   ];
   const links = items.map((item) => {
     const active = item.paths.includes(activePath);
-    return `<li class="nav-item"><a class="nav-link pixel-nav-link ${active ? 'active' : ''}" href="${item.href}" ${active ? 'aria-current="page"' : ''}><span class="pixel-nav-icon nav-icon-${item.icon}" aria-hidden="true"></span><span class="nav-label">${item.label}</span></a></li>`;
+    return `<li class="nav-item"><a class="nav-link pixel-nav-link ${active ? 'active' : ''}" href="${item.href}" ${active ? 'aria-current="page"' : ''}><span class="pixel-nav-icon nav-icon-${item.icon}" aria-hidden="true"><i class="bi bi-${navIconBiMap[item.icon] || 'star-fill'}"></i></span><span class="nav-label">${item.label}</span></a></li>`;
   }).join('');
 
   return `
@@ -258,11 +269,11 @@ function renderNav(req, user) {
         <div class="collapse navbar-collapse" id="mainNav">
           <ul class="navbar-nav pixel-nav-list me-auto mb-2 mb-xl-0">${links}</ul>
           <div class="pixel-nav-actions">
-            <span class="navbar-text player-chip"><span class="pixel-nav-icon nav-icon-avatar" aria-hidden="true"></span> ${isAdminSection ? 'Admin' : 'Player'} ${escapeHtml(user.name)}</span>
-            <a class="btn btn-sm btn-light pixel-logout" href="/logout"><span class="pixel-nav-icon nav-icon-exit" aria-hidden="true"></span> Logout</a>
+            <span class="navbar-text player-chip"><span class="pixel-nav-icon nav-icon-avatar" aria-hidden="true"><i class="bi bi-person-fill"></i></span><span class="player-name-text">${isAdminSection ? 'Admin' : 'Player'} ${escapeHtml(user.name)}</span></span>
+            <a class="btn btn-sm btn-light pixel-logout" href="/logout"><span class="pixel-nav-icon nav-icon-exit" aria-hidden="true"><i class="bi bi-box-arrow-right"></i></span><span>Logout</span></a>
           </div>
         </div>
-      </div>
+      </div>`;
     </nav>`;
 }
 

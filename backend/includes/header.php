@@ -19,6 +19,17 @@ $navItems = $isAdminSection ? [
     ['href' => 'gamification.php', 'label' => 'Game Hub', 'icon' => 'game', 'pages' => ['gamification.php']],
     ['href' => 'profile.php', 'label' => 'Profile', 'icon' => 'avatar', 'pages' => ['profile.php']],
 ];
+$navIconBiMap = [
+    'dashboard' => 'speedometer2',
+    'coin'      => 'arrow-left-right',
+    'wallet'    => 'wallet2',
+    'piggy'     => 'piggy-bank',
+    'receipt'   => 'receipt',
+    'game'      => 'controller',
+    'avatar'    => 'person-fill',
+    'chart'     => 'bar-chart-fill',
+    'exit'      => 'box-arrow-right',
+];
 ?>
 <!doctype html>
 <html lang="en">
@@ -49,7 +60,7 @@ $navItems = $isAdminSection ? [
                         ?>
                         <li class="nav-item">
                             <a class="nav-link pixel-nav-link <?= $isActive ? 'active' : '' ?>" href="<?= e($item['href']) ?>" <?= $isActive ? 'aria-current="page"' : '' ?>>
-                                <span class="pixel-nav-icon nav-icon-<?= e($item['icon']) ?>" aria-hidden="true"></span>
+                                <span class="pixel-nav-icon nav-icon-<?= e($item['icon']) ?>" aria-hidden="true"><i class="bi bi-<?= e($navIconBiMap[$item['icon']] ?? 'star-fill') ?>"></i></span>
                                 <span class="nav-label"><?= e($item['label']) ?></span>
                             </a>
                         </li>
@@ -57,12 +68,12 @@ $navItems = $isAdminSection ? [
                 </ul>
                 <div class="pixel-nav-actions">
                     <span class="navbar-text player-chip">
-                        <span class="pixel-nav-icon nav-icon-avatar" aria-hidden="true"></span>
-                        <?= $isAdminSection ? 'Admin' : 'Player' ?> <?= e(current_user_name()) ?>
+                        <span class="pixel-nav-icon nav-icon-avatar" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+                        <span class="player-name-text"><?= $isAdminSection ? 'Admin' : 'Player' ?> <?= e(current_user_name()) ?></span>
                     </span>
                     <a class="btn btn-sm btn-light pixel-logout" href="<?= e($assetPrefix) ?>logout.php">
-                        <span class="pixel-nav-icon nav-icon-exit" aria-hidden="true"></span>
-                        Logout
+                        <span class="pixel-nav-icon nav-icon-exit" aria-hidden="true"><i class="bi bi-box-arrow-right"></i></span>
+                        <span>Logout</span>
                     </a>
                 </div>
             </div>
